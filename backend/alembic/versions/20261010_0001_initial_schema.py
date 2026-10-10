@@ -18,6 +18,12 @@ depends_on = None
 def upgrade() -> None:
     # SQLAlchemy models are the source of truth for the initial public schema.
     Base.metadata.create_all(bind=op.get_bind())
+    # Link application profiles to Supabase Auth identities.
+    op.execute("""
+        ALTER TABLE public.profiles
+        ADD CONSTRAINT fk_profiles_auth_user_id
+        FOREIGN KEY (auth_user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+    """)
 
     # Every application table uses RLS; tables without an explicit policy are closed by default.
     for table in Base.metadata.sorted_tables:
@@ -125,7 +131,8 @@ def upgrade() -> None:
         "laboratory_tests", "medicines", "medicine_batches", "service_catalog",
         "suppliers", "inventory_items", "inventory_item_transactions",
         "inventory_transactions", "pharmacy_dispensing", "appointments",
-        "online_consultations",
+        "online_consultations", "consultations", "nursing_notes", "payment_allocations",
+        "receipts", "doctor_schedules", "system_settings", "emergency_events",
     ):
         op.execute(
             f"CREATE POLICY {table}_deny_direct_client_access ON public.{table} "
@@ -146,6 +153,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.execute("ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS fk_profiles_auth_user_id")
     for table in (
         "profiles", "roles", "user_roles", "patients", "admissions", "encounters",
         "vital_signs", "diagnoses", "laboratory_orders", "laboratory_results",
