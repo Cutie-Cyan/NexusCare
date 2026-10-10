@@ -8,7 +8,6 @@ The optional Auth seeding requires SUPABASE_SECRET_KEY and creates five confirme
 fictional development doctor accounts. Never use these demo accounts in production.
 """
 import argparse
-import os
 from datetime import date
 from decimal import Decimal
 from uuid import UUID
@@ -115,7 +114,7 @@ def seed_reference_data(session: Session) -> dict[str, Department]:
 
 def seed_doctor_auth_users(session: Session, department: Department) -> None:
     settings = get_settings()
-    password = os.getenv("SEED_DOCTOR_PASSWORD", "")
+    password = settings.seed_doctor_password
     if not settings.supabase_url or not settings.supabase_secret_key:
         raise RuntimeError(
             "Set SUPABASE_URL and server-only SUPABASE_SECRET_KEY before --create-auth-users."
