@@ -505,7 +505,7 @@ def upgrade() -> None:
         )
     """)
     op.execute("""
-        CREATE POLICY patients_access_authorized_roles ON public.patients
+        CREATE POLICY patients_staff_access ON public.patients
         FOR ALL TO authenticated USING (
             EXISTS (
                 SELECT 1
@@ -514,12 +514,9 @@ def upgrade() -> None:
                 JOIN public.roles r ON r.id = ur.role_id
                 WHERE p.auth_user_id = auth.uid()
                   AND p.is_active = true
-                  AND (
-                    r.code IN (
-                      'administrator','information_officer','doctor','nurse',
-                      'cashier','laboratory_staff','pharmacy_staff'
-                    )
-                    OR (r.code = 'patient' AND patients.patient_profile_id = p.id)
+                  AND r.code IN (
+                    'administrator','information_officer','doctor','nurse',
+                    'cashier','laboratory_staff','pharmacy_staff'
                   )
             )
         ) WITH CHECK (
@@ -530,13 +527,19 @@ def upgrade() -> None:
                 JOIN public.roles r ON r.id = ur.role_id
                 WHERE p.auth_user_id = auth.uid()
                   AND p.is_active = true
-                  AND (
-                    r.code IN (
-                      'administrator','information_officer','doctor','nurse',
-                      'cashier','laboratory_staff','pharmacy_staff'
-                    )
-                    OR (r.code = 'patient' AND patients.patient_profile_id = p.id)
+                  AND r.code IN (
+                    'administrator','information_officer','doctor','nurse',
+                    'cashier','laboratory_staff','pharmacy_staff'
                   )
+            )
+        )
+    """)
+    op.execute("""
+        CREATE POLICY patients_select_own_record ON public.patients
+        FOR SELECT TO authenticated USING (
+            patient_profile_id IN (
+                SELECT p.id FROM public.profiles p
+                WHERE p.auth_user_id = auth.uid() AND p.is_active = true
             )
         )
     """)
