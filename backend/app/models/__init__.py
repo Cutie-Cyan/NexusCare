@@ -101,6 +101,9 @@ class Patient(Base, TimestampMixin):
         UniqueConstraint("medical_record_number", name="uq_patients_mrn"),
     )
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    patient_profile_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("profiles.id", ondelete="SET NULL"), nullable=True, unique=True
+    )
     medical_record_number: Mapped[str] = mapped_column(String(40))
     first_name: Mapped[str] = mapped_column(String(100))
     middle_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -335,3 +338,96 @@ class AuditLog(Base):
     details: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class WardTransfer(Base):
+    __tablename__ = "ward_transfers"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    admission_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("admissions.id", ondelete="RESTRICT"), index=True)
+    from_bed_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("beds.id", ondelete="RESTRICT"), nullable=True)
+    to_bed_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("beds.id", ondelete="RESTRICT"))
+    requested_by: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("profiles.id", ondelete="RESTRICT"))
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="completed")
+    transferred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ConsultationNote(Base):
+    __tablename__ = "consultation_notes"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    encounter_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("encounters.id", ondelete="RESTRICT"), index=True)
+    author_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("profiles.id", ondelete="RESTRICT"))
+    note_type: Mapped[str] = mapped_column(String(40), default="progress")
+    content: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    amended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class Supplier(Base, TimestampMixin):
+    __tablename__ = "suppliers"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    code: Mapped[str] = mapped_column(String(50), unique=True)
+    name: Mapped[str] = mapped_column(String(180))
+    contact_name: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+
+
+class InventoryItem(Base, TimestampMixin):
+    __tablename__ = "inventory_items"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    code: Mapped[str] = mapped_column(String(50), unique=True)
+    name: Mapped[str] = mapped_column(String(180), index=True)
+    category: Mapped[str] = mapped_column(String(80))
+    unit: Mapped[str] = mapped_column(String(40), default="piece")
+    quantity_on_hand: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=Decimal("0"))
+    reorder_level: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=Decimal("0"))
+    unit_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0.00"))
+    supplier_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("suppliers.id", ondelete="SET NULL"), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+
+
+class InventoryItemTransaction(Base):
+    __tablename__ = "inventory_item_transactions"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    item_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("inventory_items.id", ondelete="RESTRICT"), index=True)
+    quantity_delta: Mapped[Decimal] = mapped_column(Numeric(12, 3))
+    transaction_type: Mapped[str] = mapped_column(String(40))
+    reference_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    recorded_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("profiles.id", ondelete="SET NULL"), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class PharmacyDispensing(Base):
+    __tablename__ = "pharmacy_dispensing"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    prescription_item_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("prescription_items.id", ondelete="RESTRICT"), index=True)
+    medicine_batch_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("medicine_batches.id", ondelete="RESTRICT"))
+    quantity: Mapped[int] = mapped_column(Integer)
+    dispensed_by: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("profiles.id", ondelete="RESTRICT"))
+    dispensed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Appointment(Base, TimestampMixin):
+    __tablename__ = "appointments"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    patient_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("patients.id", ondelete="RESTRICT"), index=True)
+    department_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("departments.id", ondelete="SET NULL"), nullable=True)
+    clinician_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("profiles.id", ondelete="SET NULL"), nullable=True)
+    scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    status: Mapped[str] = mapped_column(String(30), default="scheduled", index=True)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("profiles.id", ondelete="SET NULL"), nullable=True)
+
+
+class OnlineConsultation(Base):
+    __tablename__ = "online_consultations"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    appointment_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("appointments.id", ondelete="RESTRICT"), unique=True)
+    meeting_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="scheduled")
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
