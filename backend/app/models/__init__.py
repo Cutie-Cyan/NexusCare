@@ -431,3 +431,73 @@ class OnlineConsultation(Base):
     status: Mapped[str] = mapped_column(String(30), default="scheduled")
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class Consultation(Base):
+    __tablename__ = "consultations"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    encounter_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("encounters.id", ondelete="RESTRICT"), unique=True)
+    clinician_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("profiles.id", ondelete="RESTRICT"))
+    assessment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    plan: Mapped[str | None] = mapped_column(Text, nullable=True)
+    follow_up_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class NursingNote(Base):
+    __tablename__ = "nursing_notes"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    encounter_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("encounters.id", ondelete="RESTRICT"), index=True)
+    nurse_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("profiles.id", ondelete="RESTRICT"))
+    note_type: Mapped[str] = mapped_column(String(50), default="progress")
+    content: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class PaymentAllocation(Base):
+    __tablename__ = "payment_allocations"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    payment_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("payments.id", ondelete="RESTRICT"), index=True)
+    bill_item_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("bill_items.id", ondelete="RESTRICT"), index=True)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+
+
+class Receipt(Base):
+    __tablename__ = "receipts"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    payment_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("payments.id", ondelete="RESTRICT"), unique=True)
+    receipt_number: Mapped[str] = mapped_column(String(50), unique=True)
+    issued_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("profiles.id", ondelete="SET NULL"), nullable=True)
+    issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class DoctorSchedule(Base, TimestampMixin):
+    __tablename__ = "doctor_schedules"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    doctor_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("profiles.id", ondelete="CASCADE"), index=True)
+    department_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("departments.id", ondelete="SET NULL"), nullable=True)
+    weekday: Mapped[int] = mapped_column(Integer)
+    start_time: Mapped[str] = mapped_column(String(5))
+    end_time: Mapped[str] = mapped_column(String(5))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+
+
+class SystemSetting(Base, TimestampMixin):
+    __tablename__ = "system_settings"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    setting_key: Mapped[str] = mapped_column(String(120), unique=True)
+    setting_value: Mapped[dict] = mapped_column(JSONB, default=dict)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updated_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("profiles.id", ondelete="SET NULL"), nullable=True)
+
+
+class EmergencyEvent(Base):
+    __tablename__ = "emergency_events"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    patient_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("patients.id", ondelete="SET NULL"), nullable=True, index=True)
+    encounter_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("encounters.id", ondelete="SET NULL"), nullable=True)
+    triage_level: Mapped[str] = mapped_column(String(30))
+    chief_complaint: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(30), default="waiting", index=True)
+    arrived_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    triaged_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("profiles.id", ondelete="SET NULL"), nullable=True)
