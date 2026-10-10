@@ -32,6 +32,7 @@ Frontend environment variables are prefixed with `VITE_`. Never put a database p
 Open a second terminal from the repository root:
 ```bash
 cd backend
+uv lock
 uv sync
 cp .env.example .env
 ```
@@ -66,7 +67,13 @@ To seed fictional development data after the migration:
 ```bash
 uv run python scripts/seed_demo.py
 ```
-The seed creates role and reference records plus 20 fictional patients. It does not create Supabase Auth accounts or passwords. Do not use real patient information.
+The default seed creates role and reference records plus 20 fictional patients. Do not use real patient information. To also create five fictional doctor accounts in the existing Supabase Auth project, first set the server-only `SUPABASE_SECRET_KEY` and a development-only `SEED_DOCTOR_PASSWORD` (at least 12 characters) in `backend/.env`, then explicitly run:
+
+```bash
+uv run python scripts/seed_demo.py --create-auth-users
+```
+
+This creates/links five confirmed demo doctor accounts and assigns the doctor role. It modifies Supabase Auth, so only run it when you intentionally want those demo accounts. Never use the demo password in production. `uv lock` generates the dependency lockfile; commit `backend/uv.lock` after it is generated in an environment with package registry access.
 
 ## Authentication and authorization foundation
 - Supabase Auth verifies the bearer access token.
