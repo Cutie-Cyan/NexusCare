@@ -15,7 +15,7 @@ flowchart LR
 
 The browser must call hospital business endpoints through FastAPI. FastAPI verifies Supabase Auth access tokens and enforces authorization. Never expose a service-role key, database password, or signing secret in frontend code. The selected Python supabase-py approach is retained for backend Supabase operations; SQLAlchemy 2 and Alembic remain in the dependency baseline for schema modeling and migrations. Review this mixed access approach and all RLS policies before production.
 
-## Planned data model (Phase 2)
+## Database model foundation (Phase 2)
 
 | Domain | Tables |
 |---|---|
@@ -51,7 +51,7 @@ flowchart TD
  Discharge --> End[Release bed, update history and audit trail]
 ```
 
-## Planned API
+## API plan and current status
 
 All routes are under /api/v1, use Pydantic validation, and enforce authentication/role/scope checks.
 
@@ -68,7 +68,7 @@ All routes are under /api/v1, use Pydantic validation, and enforce authenticatio
 | Operations | GET/POST /appointments, GET /notifications, GET /dashboard |
 | Governance | GET /reports, GET /audit-logs |
 
-Only the health endpoint is implemented in Phase 1; the above are plans.
+Implemented in Phase 2: GET /api/v1/auth/me and GET /api/v1/admin/access-check (administrator role required), in addition to the health endpoint. Patient, admission, clinical, laboratory, pharmacy, finance, inventory and operations endpoints remain planned and are not implemented yet.
 
 ## Roadmap
 1. Architecture/setup, design system, responsive sidebar.
