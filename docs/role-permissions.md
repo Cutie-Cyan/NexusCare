@@ -1,6 +1,6 @@
-# NexusCare Role-Permission Matrix (Planned)
+# NexusCare Role-Permission Matrix (Target Policy)
 
-This is the intended minimum-access policy. Enforce all permissions in FastAPI; hiding UI controls is not security.
+This is the target minimum-access policy for the complete system, not a claim that every workflow is implemented. Phase 2 provides generic role checks and an administrator-only access-check endpoint; each future API route must explicitly apply its role and patient/encounter scope. Hiding UI controls is not security.
 
 | Capability | Admin | Info Officer | Doctor | Nurse | Cashier | Lab Staff | Pharmacy Staff | Patient |
 |---|---|---|---|---|---|---|---|---|
