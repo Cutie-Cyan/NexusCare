@@ -8,6 +8,7 @@ Migrations live in `backend/alembic/versions/` and are managed with Alembic thro
 
 From the `backend/` directory:
 ```bash
+uv lock
 uv sync
 # Configure DATABASE_URL in backend/.env first.
 uv run alembic upgrade head
@@ -22,9 +23,10 @@ After applying migrations:
 ```bash
 uv run python scripts/seed_demo.py
 ```
-This creates role definitions, departments, service/test/medicine reference rows, and 20 fictional patients. It does not create Supabase Auth users or passwords.
+The default run creates role definitions, departments, service/test/medicine reference rows, and 20 fictional patients. Optional doctor account creation is documented in `docs/setup.md` and requires an explicit `--create-auth-users` flag plus server-only secrets.
 
 ## Rules
+- Generate and commit `backend/uv.lock` using `uv lock` in an environment with package registry access.
 - Never commit credentials.
 - Never seed real patient data.
 - Review generated migration diffs before applying.
