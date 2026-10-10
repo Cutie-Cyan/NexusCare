@@ -95,7 +95,6 @@ def seed(session: Session) -> None:
 
 if __name__ == "__main__":
     engine = get_engine()
-    Base.metadata.create_all(engine)
     with Session(engine) as session:
         seed(session)
     print("Demo reference data and 20 fictional patient records are ready.")
