@@ -19,6 +19,10 @@ def upgrade() -> None:
     # SQLAlchemy models are the source of truth for the initial public schema.
     Base.metadata.create_all(bind=op.get_bind())
 
+    # Every application table uses RLS; tables without an explicit policy are closed by default.
+    for table in Base.metadata.sorted_tables:
+        op.execute(f"ALTER TABLE public.{table.name} ENABLE ROW LEVEL SECURITY")
+
     # Restrict profile access to the signed-in user. Staff access to patient records
     # is mediated by FastAPI role checks; direct client reads require a permitted role.
     op.execute("ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY")
@@ -44,11 +48,6 @@ def upgrade() -> None:
         FOR SELECT TO authenticated USING (auth_user_id = auth.uid())
     """)
     op.execute("""
-        CREATE POLICY profiles_update_self ON public.profiles
-        FOR UPDATE TO authenticated USING (auth_user_id = auth.uid())
-        WITH CHECK (auth_user_id = auth.uid())
-    """)
-    op.execute("""
         CREATE POLICY roles_select_authenticated ON public.roles
         FOR SELECT TO authenticated USING (true)
     """)
@@ -71,9 +70,12 @@ def upgrade() -> None:
                 JOIN public.roles r ON r.id = ur.role_id
                 WHERE p.auth_user_id = auth.uid()
                   AND p.is_active = true
-                  AND r.code IN (
-                    'administrator','information_officer','doctor','nurse',
-                    'cashier','laboratory_staff','pharmacy_staff','patient'
+                  AND (
+                    r.code IN (
+                      'administrator','information_officer','doctor','nurse',
+                      'cashier','laboratory_staff','pharmacy_staff'
+                    )
+                    OR (r.code = 'patient' AND patients.patient_profile_id = p.id)
                   )
             )
         ) WITH CHECK (
@@ -84,9 +86,12 @@ def upgrade() -> None:
                 JOIN public.roles r ON r.id = ur.role_id
                 WHERE p.auth_user_id = auth.uid()
                   AND p.is_active = true
-                  AND r.code IN (
-                    'administrator','information_officer','doctor','nurse',
-                    'cashier','laboratory_staff','pharmacy_staff','patient'
+                  AND (
+                    r.code IN (
+                      'administrator','information_officer','doctor','nurse',
+                      'cashier','laboratory_staff','pharmacy_staff'
+                    )
+                    OR (r.code = 'patient' AND patients.patient_profile_id = p.id)
                   )
             )
         )
@@ -114,6 +119,18 @@ def upgrade() -> None:
             )
         )
     """)
+
+    for table in (
+        "departments", "wards", "beds", "ward_transfers", "consultation_notes",
+        "laboratory_tests", "medicines", "medicine_batches", "service_catalog",
+        "suppliers", "inventory_items", "inventory_item_transactions",
+        "inventory_transactions", "pharmacy_dispensing", "appointments",
+        "online_consultations",
+    ):
+        op.execute(
+            f"CREATE POLICY {table}_deny_direct_client_access ON public.{table} "
+            "FOR ALL TO authenticated USING (false) WITH CHECK (false)"
+        )
 
     # Direct client table access stays closed by default for sensitive clinical and
     # financial tables. The API must apply authorization before using server DB credentials.
