@@ -21,11 +21,11 @@ The browser must call hospital business endpoints through FastAPI. FastAPI verif
 |---|---|
 | Identity | profiles, roles, user_roles, departments |
 | Patients and beds | patients, admissions, wards, beds, ward_transfers |
-| Clinical | encounters, consultations, vital_signs, diagnoses, consultation_notes |
+| Clinical | encounters, consultations, vital_signs, diagnoses, consultation_notes, nursing_notes, emergency_events |
 | Laboratory | laboratory_tests, laboratory_orders, laboratory_results |
-| Pharmacy and stock | medicines, medicine_batches, prescriptions, prescription_items, pharmacy_dispensing, inventory_items, inventory_transactions, suppliers |
+| Pharmacy and stock | medicines, medicine_batches, prescriptions, prescription_items, pharmacy_dispensing, inventory_items, inventory_item_transactions, inventory_transactions, suppliers |
 | Finance | service_catalog, bills, bill_items, payments, payment_allocations, receipts |
-| Operations | appointments, notifications, audit_logs, system_settings, doctor_schedules |
+| Operations | appointments, online_consultations, notifications, audit_logs, system_settings, doctor_schedules |
 
 Use UUID keys, UTC timestamps, foreign keys, indexes, constraints, and normalized relationships. A patient has many encounters/admissions/appointments/bills. Encounters connect consultations, diagnoses, vitals, lab orders, and prescriptions. Admissions reference wards/beds; transfers and discharge update availability atomically. Bills contain items and may have multiple payments. Profiles connect Supabase identities to roles and departments.
 
