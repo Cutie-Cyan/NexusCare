@@ -92,7 +92,7 @@ AND NOT EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.profile_id = p.id AN
 Use a secure password, do not reuse personal credentials, and do not create real patient records. Staff account provisioning currently does not force a password change at first login; plan a secure reset flow before production.
 
 ## Database migration
-The initial schema in `backend/alembic/versions/20261010_0001_initial_schema.py` has already been applied to the connected NexusCare Supabase project through the Supabase migration integration. The migration appears in Supabase migration history and the expected 40 public tables exist with RLS enabled.
+The initial schema in `backend/alembic/versions/20261010_0001_initial_schema.py` has already been applied to the connected NexusCare Supabase project through the Supabase migration integration. The migration appears in Supabase migration history and the 43 public tables exist with RLS enabled, including the procurement and receiving extension.
 
 **Important:** do not run `uv run alembic upgrade head` against that existing project yet. The schema was applied through Supabase's migration tool, and the local Alembic version table has not been reconciled; running Alembic may attempt to create tables that already exist. We will establish a safe baseline before using Alembic for future schema changes.
 
@@ -105,7 +105,7 @@ After the database connection is configured and the migration baseline is confir
 uv run python scripts/seed_demo.py
 ```
 
-This idempotently seeds role and department reference records, service/lab/medicine catalog items, 20 fictional patients, two wards, and 15 fictional beds. No real patient information should be used.
+This idempotently seeds role and department reference records, service/lab/medicine catalog items, 20 fictional patients, five wards, 30 fictional beds, two fictional suppliers, and three general-supply inventory items with ledger entries. No real patient information should be used.
 
 Optional: create five fictional doctor accounts only if you intentionally want them in the Supabase Auth project. Set server-only `SUPABASE_SECRET_KEY` and a development-only `SEED_DOCTOR_PASSWORD` (at least 12 characters) in `backend/.env`, then run `uv run python scripts/seed_demo.py --create-auth-users`. Never use demo credentials in production.
 
@@ -117,11 +117,11 @@ Optional: create five fictional doctor accounts only if you intentionally want t
 - Phase 5: emergency triage, clinical encounters, vital signs, diagnoses, and audit events.
 - Phase 6: append-only consultation and nursing notes.
 - Phase 7: lab catalog, orders, processing, results, independent verification/release.
-- Phase 8: medicine catalog/batches, prescriptions, safe dispensing, and pharmacy stock ledger.
-- Phase 9: bills, itemized charges, idempotent payment posting, receipts, and audited payment reversals.
-- Phase 10: inventory items/suppliers/movements, appointments, online-consultation records, notifications, settings, and summary reporting.
-- Phase 11: administrator audit-log search and documented RLS/RBAC security review.
-- Phase 12: frontend Supabase sign-in, authenticated FastAPI client, live patient list/registration, and API-driven summary dashboard. Other module pages remain UI placeholders while their backend APIs are available.
+- Phase 8: medicine catalog/batches, prescriptions, safe dispensing, stock ledger, and automatic pharmacy charges.
+- Phase 9: bills, service-fee administration, automatic lab/professional/pharmacy charges, idempotent payments, receipts, and audited reversals.
+- Phase 10: inventory/suppliers, procurement approvals and receiving, appointments/online consultations, notifications, whiteboard summary, settings, and reports.
+- Phase 11: administrator audit search, staff provisioning/role management, billing-aware discharge exceptions, and documented RLS/RBAC review.
+- Phase 12: Supabase sign-in, role-aware navigation, authenticated API client, live dashboard, patient registration/history, notification center, and read-only API tables. Dedicated write/action screens for most non-patient modules remain unfinished.
 
 ## Security note
 Direct SQLAlchemy access does not automatically enforce Supabase RLS based on the signed-in user. FastAPI role checks currently protect these routes, but staff access must be tightened to department/encounter-specific scopes before production. See `docs/security-review.md`. Do not use real patient data.
