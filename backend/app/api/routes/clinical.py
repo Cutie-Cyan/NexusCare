@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_profile, get_profile_roles, require_roles
 from app.db.session import get_db
+from app.core.notifications import notify_roles
 from app.models import (
     Admission, AuditLog, Diagnosis, EmergencyEvent, Encounter, Patient, Profile,
     VitalSign,
@@ -357,6 +358,9 @@ def create_emergency_event(
         "patient_id": str(patient.id) if patient else None,
         "triage_level": event.triage_level,
     })
+    notify_roles(db, {"doctor", "nurse"}, "Emergency case registered",
+                 "A new emergency case is available in the authorized triage queue.",
+                 "emergency", exclude_profile_id=profile.id)
     db.commit()
     db.refresh(event)
     return event
@@ -383,6 +387,8 @@ def update_emergency_triage(
     _audit(db, profile, "emergency_event.triaged", "emergency_event", event.id, {
         "triage_level": event.triage_level, "status": event.status,
     })
+    notify_roles(db, {"doctor", "nurse"}, "Emergency status updated",
+                 "An emergency triage status changed.", "emergency", exclude_profile_id=profile.id)
     db.commit()
     db.refresh(event)
     return event
