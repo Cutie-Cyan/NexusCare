@@ -6,6 +6,79 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
+
+class ProcurementItemInput(BaseModel):
+    inventory_item_id: UUID
+    requested_quantity: Decimal = Field(gt=0, max_digits=12, decimal_places=3)
+    unit_cost: Decimal = Field(ge=0, max_digits=12, decimal_places=2)
+    notes: str | None = Field(default=None, max_length=2000)
+
+
+class ProcurementRequestCreate(BaseModel):
+    request_number: str = Field(min_length=3, max_length=50)
+    supplier_id: UUID | None = None
+    notes: str | None = Field(default=None, max_length=3000)
+    items: list[ProcurementItemInput] = Field(min_length=1, max_length=100)
+
+    @field_validator("request_number")
+    @classmethod
+    def normalize_request_number(cls, value: str) -> str:
+        value = value.strip().upper()
+        if not value:
+            raise ValueError("Request number cannot be blank.")
+        return value
+
+    @field_validator("items")
+    @classmethod
+    def unique_inventory_items(cls, value: list[ProcurementItemInput]) -> list[ProcurementItemInput]:
+        item_ids = [item.inventory_item_id for item in value]
+        if len(item_ids) != len(set(item_ids)):
+            raise ValueError("A procurement request cannot contain the same inventory item twice.")
+        return value
+
+
+class ProcurementRequestRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    request_number: str
+    supplier_id: UUID | None
+    requested_by: UUID
+    approved_by: UUID | None
+    status: str
+    notes: str | None
+    approved_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProcurementItemRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    request_id: UUID
+    inventory_item_id: UUID
+    requested_quantity: Decimal
+    received_quantity: Decimal
+    unit_cost: Decimal
+    notes: str | None
+
+
+class ReceivingRecordCreate(BaseModel):
+    quantity_received: Decimal = Field(gt=0, max_digits=12, decimal_places=3)
+    supplier_reference: str | None = Field(default=None, max_length=120)
+    notes: str | None = Field(default=None, max_length=2000)
+
+
+class ReceivingRecordRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    procurement_item_id: UUID
+    quantity_received: Decimal
+    received_by: UUID
+    supplier_reference: str | None
+    notes: str | None
+    received_at: datetime
+
+
 class SupplierCreate(BaseModel):
     code: str = Field(min_length=2, max_length=50)
     name: str = Field(min_length=2, max_length=180)
