@@ -87,8 +87,15 @@ def list_encounters(
         if scope.int == 0:
             return []
         statement = statement.where(Encounter.patient_id == scope)
-    elif patient_id is not None:
-        statement = statement.where(Encounter.patient_id == patient_id)
+    else:
+        if patient_id is not None:
+            statement = statement.where(Encounter.patient_id == patient_id)
+        if "administrator" not in roles:
+            from sqlalchemy import or_
+            scope_conditions = [Encounter.clinician_id == profile.id]
+            if profile.department_id is not None:
+                scope_conditions.append(Encounter.department_id == profile.department_id)
+            statement = statement.where(or_(*scope_conditions))
     if encounter_status:
         if encounter_status not in {"open", "in_progress", "completed", "cancelled"}:
             raise HTTPException(status_code=422, detail="Unsupported encounter status.")
