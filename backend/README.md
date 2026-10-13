@@ -30,38 +30,22 @@ uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 
 API docs: http://127.0.0.1:8000/docs
 
-## Implemented endpoints
-- `GET /api/v1/health` — API process health check
-- `GET /api/v1/auth/me` — current Supabase-authenticated identity and roles
-- `GET /api/v1/admin/access-check` — administrator-only access check
-- `GET /api/v1/patients?q=&limit=20&offset=0` — search/list active patient records
-- `GET /api/v1/patients/{patient_id}` — read a patient record
-- `POST /api/v1/patients` — register a patient (administrator or information officer)
-- `PATCH /api/v1/patients/{patient_id}` — update patient demographics
-- `DELETE /api/v1/patients/{patient_id}` — soft-deactivate a patient
-- `GET /api/v1/wards` and `GET /api/v1/beds` — view active wards and beds
-- `POST /api/v1/wards` and `POST /api/v1/beds` — create wards/beds (administrator only)
-- `GET /api/v1/admissions` — list admissions, with optional status/patient filters
-- `POST /api/v1/admissions` — admit a patient and optionally reserve a bed
-- `POST /api/v1/admissions/{id}/transfer` — transfer an admitted patient to an available bed
-- `POST /api/v1/admissions/{id}/discharge` — discharge an admitted patient and release the bed
-- `GET /api/v1/encounters` and `GET /api/v1/encounters/{id}` — list and view clinical encounters
-- `POST /api/v1/encounters` — open a clinical encounter for an active patient
-- `PATCH /api/v1/encounters/{id}` — update encounter notes/status and close an encounter
-- `GET/POST /api/v1/encounters/{id}/vitals` — read or record vital signs
-- `GET/POST /api/v1/encounters/{id}/diagnoses` — read or record encounter diagnoses
-- `GET /api/v1/emergency-events` — list emergency-room events
-- `POST /api/v1/emergency-events` — register an emergency event and link/create an encounter when a patient is known
-- `PATCH /api/v1/emergency-events/{id}/triage` — update triage level and emergency status
-- `GET/POST /api/v1/encounters/{id}/consultation-notes` — list or add doctor-authored consultation notes
-- `GET/POST /api/v1/encounters/{id}/nursing-notes` — list or add nurse-authored nursing notes
-- `GET /api/v1/laboratory-tests` — list active laboratory tests (authorized clinical/lab roles)
-- `POST /api/v1/laboratory-tests` — add a catalog test (administrator)
-- `GET /api/v1/laboratory-orders` — list and filter laboratory orders
-- `POST /api/v1/laboratory-orders` — order a test for an open encounter (doctor)
-- `PATCH /api/v1/laboratory-orders/{id}/status` — update specimen/processing status (laboratory staff)
-- `GET/POST /api/v1/laboratory-orders/{id}/result` — read or enter a result (laboratory staff can enter)
-- `POST /api/v1/laboratory-orders/{id}/verify-result` — verify/release a result; a different staff member must verify it
+## Implemented API modules
+
+- **Authentication/admin:** `GET /api/v1/auth/me`, `GET /api/v1/admin/access-check`, administrator-only `GET /api/v1/admin/audit-logs`.
+- **Patients:** `GET/POST /api/v1/patients`, `GET/PATCH/DELETE /api/v1/patients/{id}`; patient records are soft-deactivated, not hard-deleted.
+- **Admissions/beds:** `GET/POST /api/v1/wards`, `GET/POST /api/v1/beds`, `GET/POST /api/v1/admissions`, `POST /api/v1/admissions/{id}/transfer`, `POST /api/v1/admissions/{id}/discharge`.
+- **Clinical/emergency:** encounters, vital signs, diagnoses, emergency-event creation and triage.
+- **Consultation/nursing:** append-only consultation and nursing notes per encounter.
+- **Laboratory:** test catalog, lab orders, processing status, result entry, and independent result verification/release.
+- **Pharmacy:** `GET/POST /api/v1/medicines`, `GET/POST /api/v1/medicine-batches`, `GET /api/v1/pharmacy/stock`, `POST /api/v1/prescriptions`, prescription listing/items, and `POST /api/v1/prescription-items/{id}/dispense`. Dispensing locks stock rows, rejects expired/mismatched batches and prevents dispensing more than prescribed.
+- **Billing/payments:** service catalog, bill creation, bill items/balance, payment listing/posting, receipt creation, and administrator-only payment reversal. Payments require an `Idempotency-Key`; posted payments are reversed with an audit record rather than deleted.
+- **Inventory:** supplier catalogue, inventory item management, stock movement posting, movement history, low-stock filtering. Stock changes are row-locked and cannot make quantities negative.
+- **Appointments/online consultation:** appointment listing/creation/status, clinician schedule read, and online-consultation session creation.
+- **Notifications/settings/reports:** per-profile notifications and read status; administrator-only system settings; role-restricted operational summary reporting.
+- **Health:** `GET /api/v1/health` reports API process health only, not database or auth connectivity.
+
+The complete interactive endpoint reference is available at `/docs` when the API is running.
 
 ## Database migration and seed
 The initial schema is defined in `alembic/versions/20261010_0001_initial_schema.py`. The connected NexusCare Supabase project has already received this schema through the Supabase migration integration. **Do not run `alembic upgrade head` against that already-migrated project until its Alembic version baseline has been reconciled**; doing so may attempt to recreate existing tables. For new environments, review the migration and setup guide before applying it.
@@ -74,7 +58,7 @@ uv run python scripts/seed_demo.py
 
 It creates reference data, 20 fictional patients, 15 fictional beds across two wards, and catalog items. Do not use real patient data. Optional Auth user seeding creates five fictional doctor accounts and requires server-only secrets; never use demo credentials in production.
 
-## Security and current limits
-All protected endpoints require a valid Supabase bearer access token and an active NexusCare profile. Role checks are enforced by FastAPI; the direct SQLAlchemy connection does not automatically inherit the user's Supabase RLS permissions. Patient list/detail access is limited to a patient's own linked record or authorized staff roles. Admission and bed operations use database row locks for key state transitions and log important changes to `audit_logs`.
+## Security and limitations
+All protected endpoints require a valid Supabase bearer access token and an active NexusCare profile. Role checks are enforced by FastAPI; the direct SQLAlchemy connection does not automatically inherit the signed-in user's Supabase RLS permissions. Review `docs/security-review.md` before exposing or deploying the system.
 
-Laboratory result entry is append-only in this phase: results cannot be edited or deleted through the API, and a different laboratory staff member must verify/release a draft result. Result release and order completion are recorded in the audit log. This is a capstone development foundation, not production-ready clinical software. Department/encounter-specific staff access, pharmacy, billing, inventory, appointments, notifications, analytics, and full frontend integration remain to be implemented. Do not use real patient data.
+This is a capstone development foundation, not production-ready clinical software. Staff department/encounter scopes, comprehensive automated authorization tests, formal clinical validation, disaster recovery, monitoring, and security/privacy review are still required. The connected database should contain fictional demo records only.
