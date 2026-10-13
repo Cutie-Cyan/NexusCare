@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Activity, BedDouble, CalendarDays, ClipboardList, FlaskConical, Package, RefreshCw, Siren } from 'lucide-react'
+import { BedDouble, CalendarDays, ClipboardList, FlaskConical, Package, RefreshCw, Siren } from 'lucide-react'
 import { apiRequest } from '../lib/api.js'
 
 const metrics = [
@@ -11,8 +11,6 @@ const metrics = [
   ['low_stock_items', 'Low-stock items', Package],
   ['active_appointments', 'Active appointments', CalendarDays],
 ]
-const labels = Object.fromEntries(metrics.map(([key, label]) => [key, label]))
-
 export function WhiteboardPage() {
   const query = useQuery({ queryKey: ['whiteboard'], queryFn: () => apiRequest('/whiteboard'), refetchInterval: 15000 })
   return <section className="page-wrap">
