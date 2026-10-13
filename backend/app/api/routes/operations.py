@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_profile, get_profile_roles, require_roles
 from app.db.session import get_db
-from app.core.notifications import notify_roles
+from app.core.notifications import notify_profiles, notify_roles
 from app.models import (
     Admission, Appointment, AuditLog, Bed, Bill, Department, DoctorSchedule,
     EmergencyEvent, InventoryItem, InventoryItemTransaction, LaboratoryOrder,
@@ -141,6 +141,10 @@ def move_inventory(
             "item_id": str(item.id), "quantity_delta": str(payload.quantity_delta),
             "new_quantity": str(updated),
         })
+        if updated <= item.reorder_level:
+            notify_roles(db, {"administrator", "pharmacy_staff"}, "Low inventory alert",
+                         f"Inventory item {item.code} is at or below its reorder level.",
+                         "inventory", exclude_profile_id=profile.id)
         db.commit()
         db.refresh(movement)
         return movement
@@ -415,6 +419,11 @@ def create_appointment(
     _audit(db, profile, "appointment.created", "appointment", appointment.id, {
         "patient_id": str(patient.id), "scheduled_at": appointment.scheduled_at.isoformat(),
     })
+    notify_roles(db, {"information_officer"}, "Appointment requested",
+                 "A new appointment was scheduled or requested.", "appointment", exclude_profile_id=profile.id)
+    if appointment.clinician_id:
+        notify_profiles(db, {appointment.clinician_id}, "Appointment scheduled",
+                        "An appointment has been assigned to your schedule.", "appointment", exclude_profile_id=profile.id)
     db.commit()
     db.refresh(appointment)
     return appointment
@@ -436,6 +445,11 @@ def update_appointment_status(
         raise HTTPException(status_code=409, detail="Closed appointment status cannot be changed.")
     appointment.status = payload.status
     _audit(db, profile, "appointment.status_changed", "appointment", appointment.id, {"status": payload.status})
+    notify_roles(db, {"information_officer"}, "Appointment status updated",
+                 "An appointment status changed.", "appointment", exclude_profile_id=profile.id)
+    if appointment.clinician_id:
+        notify_profiles(db, {appointment.clinician_id}, "Appointment status updated",
+                        "An appointment on your schedule changed status.", "appointment", exclude_profile_id=profile.id)
     db.commit()
     db.refresh(appointment)
     return appointment
