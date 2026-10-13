@@ -6,7 +6,12 @@ import pytest
 from pydantic import ValidationError
 
 from app.schemas.billing import BillCreate, BillItemInput, PaymentCreate, PaymentReversal
-from app.schemas.operations import AppointmentCreate, InventoryMovementCreate, SystemSettingWrite
+from app.schemas.operations import (
+    AppointmentCreate, InventoryMovementCreate, ProcurementRequestCreate,
+    ProcurementItemInput, SystemSettingWrite,
+)
+from app.schemas.admin import StaffCreate, StaffRolesUpdate
+from app.schemas.billing import ServiceCatalogCreate
 from app.schemas.pharmacy import (
     DispenseCreate, MedicineBatchCreate, MedicineCreate, PrescriptionCreate,
     PrescriptionItemInput,
@@ -90,3 +95,30 @@ def test_appointment_datetime_requires_timezone():
 def test_system_setting_value_is_structured():
     setting = SystemSettingWrite(setting_value={"maintenance_mode": False})
     assert setting.setting_value["maintenance_mode"] is False
+
+def test_procurement_request_requires_unique_inventory_items():
+    item_id = uuid4()
+    item = ProcurementItemInput(inventory_item_id=item_id, requested_quantity="3.000", unit_cost="10.00")
+    request = ProcurementRequestCreate(request_number="PR-001", items=[item])
+    assert request.items[0].requested_quantity == Decimal("3.000")
+    with pytest.raises(ValidationError):
+        ProcurementRequestCreate(request_number="PR-002", items=[item, item.model_copy()])
+
+
+def test_service_fee_schema_uses_decimal_money():
+    service = ServiceCatalogCreate(code="CONSULT-2", name="Consultation", category="professional_fee", price="500.00")
+    assert service.price == Decimal("500.00")
+    with pytest.raises(ValidationError):
+        ServiceCatalogCreate(code="CONSULT-3", name="Consultation", category="professional_fee", price="-1.00")
+
+
+def test_staff_provisioning_requires_strong_initial_password_and_roles():
+    staff = StaffCreate(
+        email="staff@example.test", full_name="Fictional Staff",
+        initial_password="Demo-only-password-123", role_codes=["doctor"],
+    )
+    assert staff.email == "staff@example.test"
+    with pytest.raises(ValidationError):
+        StaffCreate(email="staff@example.test", full_name="Fictional Staff", initial_password="short", role_codes=["doctor"])
+    with pytest.raises(ValidationError):
+        StaffRolesUpdate(role_codes=["doctor", "doctor"])
