@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_roles
+from app.api.deps import ensure_encounter_access, require_roles
 from app.db.session import get_db
 from app.core.billing import add_service_charge
 from app.core.notifications import notify_roles
@@ -16,10 +16,11 @@ from app.schemas.notes import (
 router = APIRouter(tags=["consultation and nursing notes"])
 
 
-def _active_encounter(db: Session, encounter_id: UUID) -> Encounter:
+def _active_encounter(db: Session, encounter_id: UUID, profile: Profile) -> Encounter:
     encounter = db.scalar(select(Encounter).where(Encounter.id == encounter_id))
     if encounter is None:
         raise HTTPException(status_code=404, detail="Encounter not found.")
+    ensure_encounter_access(profile, encounter, db)
     return encounter
 
 
@@ -48,7 +49,7 @@ def list_consultation_notes(
     profile: Profile = Depends(require_roles("doctor", "nurse")),
     db: Session = Depends(get_db),
 ) -> list[ConsultationNote]:
-    _active_encounter(db, encounter_id)
+    _active_encounter(db, encounter_id, profile)
     return list(db.scalars(
         select(ConsultationNote)
         .where(ConsultationNote.encounter_id == encounter_id)
@@ -68,7 +69,7 @@ def create_consultation_note(
     profile: Profile = Depends(require_roles("doctor")),
     db: Session = Depends(get_db),
 ) -> ConsultationNote:
-    encounter = _active_encounter(db, encounter_id)
+    encounter = _active_encounter(db, encounter_id, profile)
     _ensure_open(encounter)
     note = ConsultationNote(
         encounter_id=encounter.id,
@@ -107,7 +108,7 @@ def list_nursing_notes(
     profile: Profile = Depends(require_roles("doctor", "nurse")),
     db: Session = Depends(get_db),
 ) -> list[NursingNote]:
-    _active_encounter(db, encounter_id)
+    _active_encounter(db, encounter_id, profile)
     return list(db.scalars(
         select(NursingNote)
         .where(NursingNote.encounter_id == encounter_id)
@@ -127,7 +128,7 @@ def create_nursing_note(
     profile: Profile = Depends(require_roles("nurse")),
     db: Session = Depends(get_db),
 ) -> NursingNote:
-    encounter = _active_encounter(db, encounter_id)
+    encounter = _active_encounter(db, encounter_id, profile)
     _ensure_open(encounter)
     note = NursingNote(
         encounter_id=encounter.id,
