@@ -9,7 +9,7 @@ import {
 import { canAccessPath } from '../../permissions.js'
 
 const groups = [
-  { label: 'OVERVIEW', items: [['Dashboard', '/', LayoutDashboard]] },
+  { label: 'OVERVIEW', items: [['Dashboard', '/', LayoutDashboard], ['Ward Whiteboard', '/whiteboard', Activity]] },
   { label: 'PATIENT MANAGEMENT', items: [
     ['Patients', '/patients', Users], ['Registration', '/registration', UserPlus],
     ['Admissions', '/admissions', ClipboardList], ['Emergency Room', '/emergency', Siren],
