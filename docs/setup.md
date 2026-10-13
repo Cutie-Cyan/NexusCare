@@ -69,6 +69,7 @@ Optional: create five fictional doctor accounts only if you intentionally want t
 - Phase 3: patient registration, search, retrieval, demographic update, soft deactivation.
 - Phase 4: ward/bed management, admission, bed transfer, discharge, audit logging.
 - Phase 5: emergency-event registration/triage, clinical encounters, vital-sign observations, diagnoses, role checks, and audit events.
-- Not yet implemented: full consultation/nursing workflows, laboratory, pharmacy, billing, inventory, appointments, notifications UI, and analytics.
+- Phase 6: doctor-authored consultation notes and nurse-authored nursing notes, with immutable entries, role checks, and audit events.
+- Not yet implemented: laboratory, pharmacy, billing, inventory, appointments, notifications UI, analytics, and frontend integration.
 
 **Security note:** direct SQLAlchemy access does not automatically enforce Supabase RLS based on the signed-in user. FastAPI role checks currently protect these routes, but staff access must be tightened to department/encounter-specific scopes before production. Do not use real patient data.
