@@ -77,6 +77,18 @@ class LaboratoryOrderRead(BaseModel):
     updated_at: datetime
 
 
+class LaboratoryBillingAuthorizationCreate(BaseModel):
+    reason: str = Field(min_length=3, max_length=2000)
+
+    @field_validator("reason")
+    @classmethod
+    def normalize_reason(cls, value: str) -> str:
+        value = value.strip()
+        if len(value) < 3:
+            raise ValueError("A billing arrangement reason is required.")
+        return value
+
+
 class LaboratoryOrderStatusUpdate(BaseModel):
     status: Literal["collected", "in_progress", "cancelled"]
 
