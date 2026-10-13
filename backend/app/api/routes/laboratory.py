@@ -344,6 +344,9 @@ def verify_laboratory_result(
     _audit(db, profile, "laboratory_result.verified", "laboratory_result", result.id, {
         "order_id": str(order.id),
     })
+    notify_roles(db, {"doctor", "nurse"}, "Laboratory result released",
+                 "A laboratory result was verified and is available to authorized clinical staff.",
+                 "laboratory", exclude_profile_id=profile.id)
     db.commit()
     db.refresh(result)
     return result
