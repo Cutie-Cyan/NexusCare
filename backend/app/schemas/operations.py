@@ -79,6 +79,44 @@ class ReceivingRecordRead(BaseModel):
     received_at: datetime
 
 
+class DepartmentCreate(BaseModel):
+    code: str = Field(min_length=2, max_length=40)
+    name: str = Field(min_length=2, max_length=120)
+    description: str | None = Field(default=None, max_length=3000)
+
+    @field_validator("code")
+    @classmethod
+    def normalize_department_code(cls, value: str) -> str:
+        value = value.strip().upper()
+        if not value:
+            raise ValueError("Department code cannot be blank.")
+        return value
+
+    @field_validator("name")
+    @classmethod
+    def normalize_department_name(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Department name cannot be blank.")
+        return value
+
+    @field_validator("description")
+    @classmethod
+    def normalize_department_description(cls, value: str | None) -> str | None:
+        return value.strip() or None if value is not None else None
+
+
+class DepartmentRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    code: str
+    name: str
+    description: str | None
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+
 class SupplierCreate(BaseModel):
     code: str = Field(min_length=2, max_length=50)
     name: str = Field(min_length=2, max_length=180)
