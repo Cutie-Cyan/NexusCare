@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_profile, require_roles
+from app.api.deps import ensure_encounter_access, get_current_profile, get_profile_roles, require_roles
 from app.db.session import get_db
 from app.core.billing import add_service_charge
 from app.core.notifications import notify_roles
@@ -106,6 +106,14 @@ def list_laboratory_orders(
     if order_status and order_status not in allowed_statuses:
         raise HTTPException(status_code=422, detail="Unsupported laboratory order status.")
     statement = select(LaboratoryOrder)
+    role_codes = set(get_profile_roles(profile.id, db))
+    if not role_codes.intersection({"administrator", "laboratory_staff"}):
+        from sqlalchemy import or_
+        statement = statement.join(Encounter, Encounter.id == LaboratoryOrder.encounter_id)
+        scope_conditions = [Encounter.clinician_id == profile.id]
+        if profile.department_id is not None:
+            scope_conditions.append(Encounter.department_id == profile.department_id)
+        statement = statement.where(or_(*scope_conditions))
     if order_status:
         statement = statement.where(LaboratoryOrder.status == order_status)
     if encounter_id:
@@ -131,6 +139,7 @@ def create_laboratory_order(
     ).with_for_update())
     if encounter is None:
         raise HTTPException(status_code=404, detail="Encounter not found.")
+    ensure_encounter_access(profile, encounter, db)
     if encounter.status in {"completed", "cancelled"}:
         raise HTTPException(status_code=409, detail="Cannot order tests for a closed encounter.")
     lab_test = db.scalar(select(LaboratoryTest).where(
@@ -269,6 +278,15 @@ def get_laboratory_result(
     )),
     db: Session = Depends(get_db),
 ) -> LaboratoryResult:
+    order = db.scalar(select(LaboratoryOrder).where(LaboratoryOrder.id == order_id))
+    if order is None:
+        raise HTTPException(status_code=404, detail="Laboratory order not found.")
+    role_codes = set(get_profile_roles(profile.id, db))
+    if not role_codes.intersection({"administrator", "laboratory_staff"}):
+        encounter = db.scalar(select(Encounter).where(Encounter.id == order.encounter_id))
+        if encounter is None:
+            raise HTTPException(status_code=404, detail="Encounter not found.")
+        ensure_encounter_access(profile, encounter, db)
     result = db.scalar(select(LaboratoryResult).where(
         LaboratoryResult.order_id == order_id
     ))
