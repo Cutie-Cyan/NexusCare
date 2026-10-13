@@ -1,20 +1,24 @@
 from datetime import datetime, timezone
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_profile, require_roles
 from app.db.session import get_db
+from app.core.billing import add_service_charge
+from app.core.notifications import notify_roles
 from app.models import (
-    AuditLog, Encounter, LaboratoryOrder, LaboratoryResult, LaboratoryTest, Profile,
+    AuditLog, BillItem, Encounter, LaboratoryOrder, LaboratoryResult, LaboratoryTest,
+    Payment, PaymentAllocation, Profile,
 )
 from app.schemas.laboratory import (
-    LaboratoryOrderCreate, LaboratoryOrderRead, LaboratoryOrderStatusUpdate,
-    LaboratoryResultCreate, LaboratoryResultRead, LaboratoryTestCreate,
-    LaboratoryTestRead,
+    LaboratoryBillingAuthorizationCreate, LaboratoryOrderCreate, LaboratoryOrderRead,
+    LaboratoryOrderStatusUpdate, LaboratoryResultCreate, LaboratoryResultRead,
+    LaboratoryTestCreate, LaboratoryTestRead,
 )
 
 router = APIRouter(tags=["laboratory"])
@@ -151,6 +155,15 @@ def create_laboratory_order(
         "test_id": str(lab_test.id),
         "priority": order.priority,
     })
+    if lab_test.base_fee > 0:
+        add_service_charge(
+            db, encounter.patient_id, encounter.id,
+            f"Lab order {order.id}: {lab_test.name}", lab_test.base_fee,
+        )
+    notify_roles(db, {"laboratory_staff"}, "New laboratory request",
+                 "A laboratory request is ready for eligibility review.", "laboratory")
+    notify_roles(db, {"cashier"}, "Laboratory charge added",
+                 "A laboratory request added a charge to the encounter bill.", "billing")
     db.commit()
     db.refresh(order)
     return order
@@ -176,6 +189,24 @@ def update_laboratory_order_status(
         raise HTTPException(status_code=409, detail="This laboratory order is already closed.")
     if payload.status == "collected" and order.status != "ordered":
         raise HTTPException(status_code=409, detail="Only ordered tests can be marked collected.")
+    if payload.status in {"collected", "in_progress"}:
+        lab_test = db.scalar(select(LaboratoryTest).where(LaboratoryTest.id == order.test_id))
+        if lab_test and lab_test.base_fee > 0:
+            charge_description = f"Lab order {order.id}: {lab_test.name}"
+            charge_item = db.scalar(select(BillItem).where(BillItem.description == charge_description))
+            paid_for_charge = Decimal("0.00")
+            if charge_item is not None:
+                paid_for_charge = Decimal(str(db.scalar(
+                    select(func.coalesce(func.sum(PaymentAllocation.amount), 0))
+                    .join(Payment, Payment.id == PaymentAllocation.payment_id)
+                    .where(PaymentAllocation.bill_item_id == charge_item.id, Payment.status == "posted")
+                ) or 0))
+            authorized = db.scalar(select(AuditLog.id).where(
+                AuditLog.action == "laboratory_billing.authorized",
+                AuditLog.resource_id == str(order.id),
+            ))
+            if (charge_item is None or paid_for_charge < charge_item.line_total) and authorized is None:
+                raise HTTPException(status_code=409, detail="Laboratory processing requires payment for this test or an authorized billing arrangement.")
     if payload.status == "in_progress" and order.status not in {"ordered", "collected"}:
         raise HTTPException(status_code=409, detail="Only ordered or collected tests can be started.")
     if payload.status == "cancelled":
@@ -192,6 +223,32 @@ def update_laboratory_order_status(
     db.commit()
     db.refresh(order)
     return order
+
+
+@router.post("/laboratory-orders/{order_id}/billing-authorization", summary="Authorize a laboratory billing arrangement")
+def authorize_laboratory_billing(
+    order_id: UUID,
+    payload: LaboratoryBillingAuthorizationCreate,
+    profile: Profile = Depends(require_roles("administrator", "cashier")),
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    order = db.scalar(select(LaboratoryOrder).where(LaboratoryOrder.id == order_id))
+    if order is None:
+        raise HTTPException(status_code=404, detail="Laboratory order not found.")
+    if order.status in {"completed", "cancelled"}:
+        raise HTTPException(status_code=409, detail="Closed laboratory orders cannot receive a billing authorization.")
+    existing = db.scalar(select(AuditLog.id).where(
+        AuditLog.action == "laboratory_billing.authorized", AuditLog.resource_id == str(order.id)
+    ))
+    if existing:
+        raise HTTPException(status_code=409, detail="A billing arrangement is already authorized for this order.")
+    _audit(db, profile, "laboratory_billing.authorized", "laboratory_order", order.id, {
+        "reason": payload.reason, "authorized_by": str(profile.id),
+    })
+    notify_roles(db, {"laboratory_staff"}, "Laboratory billing authorized",
+                 "An authorized billing arrangement is recorded for a laboratory request.", "billing")
+    db.commit()
+    return {"status": "authorized", "order_id": str(order.id)}
 
 
 @router.get(
