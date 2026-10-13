@@ -66,6 +66,31 @@ uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 - Interactive API docs: http://127.0.0.1:8000/docs
 - Frontend: normally http://127.0.0.1:5173
 
+## Bootstrap the first administrator
+
+The staff-provisioning API is administrator-only, so one initial administrator profile must be linked manually after creating an Auth user:
+
+1. In Supabase Dashboard → Authentication → Users, create a development administrator account and confirm its email. Copy the Auth user UUID.
+2. In SQL Editor, replace the placeholder UUID and email in this statement, then run it:
+
+```sql
+INSERT INTO public.profiles (auth_user_id, full_name, email, department_id, is_active)
+SELECT 'REPLACE_WITH_AUTH_USER_UUID'::uuid, 'NexusCare Administrator', 'admin@example.test', d.id, true
+FROM public.departments d WHERE d.code = 'ADMIN'
+ON CONFLICT (auth_user_id) DO UPDATE
+SET full_name = EXCLUDED.full_name, email = EXCLUDED.email, department_id = EXCLUDED.department_id, is_active = true;
+
+INSERT INTO public.user_roles (profile_id, role_id, assigned_by)
+SELECT p.id, r.id, p.id
+FROM public.profiles p CROSS JOIN public.roles r
+WHERE p.email = 'admin@example.test' AND r.code = 'administrator'
+AND NOT EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.profile_id = p.id AND ur.role_id = r.id);
+```
+
+3. Add the server-only `SUPABASE_SECRET_KEY` to `backend/.env` if you want to create additional accounts through `POST /api/v1/admin/staff`. Never expose it in the frontend.
+
+Use a secure password, do not reuse personal credentials, and do not create real patient records. Staff account provisioning currently does not force a password change at first login; plan a secure reset flow before production.
+
 ## Database migration
 The initial schema in `backend/alembic/versions/20261010_0001_initial_schema.py` has already been applied to the connected NexusCare Supabase project through the Supabase migration integration. The migration appears in Supabase migration history and the expected 40 public tables exist with RLS enabled.
 
