@@ -13,7 +13,7 @@ from app.core.notifications import notify_roles
 from app.models import Admission, AuditLog, Bed, Bill, Department, Patient, Payment, Profile, Ward, WardTransfer
 from app.schemas.admission import (
     AdmissionCreate, AdmissionRead, BedCreate, BedRead, BedTransferCreate,
-    DischargeRequest, WardCreate, WardRead,
+    DepartmentCreate, DepartmentRead, DischargeRequest, WardCreate, WardRead,
 )
 
 router = APIRouter(tags=["admissions and beds"])
@@ -43,6 +43,40 @@ def _audit(db: Session, profile: Profile, action: str, resource_type: str, resou
         resource_id=str(resource_id),
         details=details or {},
     ))
+
+
+@router.get("/departments", response_model=list[DepartmentRead], summary="List departments")
+def list_departments(
+    include_inactive: bool = False,
+    profile: Profile = Depends(get_current_profile),
+    db: Session = Depends(get_db),
+) -> list[Department]:
+    roles = set(get_profile_roles(profile.id, db))
+    if not roles.intersection(ADMISSION_READ_ROLES | {"patient"}):
+        raise HTTPException(status_code=403, detail="Insufficient permissions.")
+    statement = select(Department)
+    if not include_inactive:
+        statement = statement.where(Department.is_active.is_(True))
+    return list(db.scalars(statement.order_by(Department.name)).all())
+
+
+@router.post("/departments", response_model=DepartmentRead, status_code=status.HTTP_201_CREATED)
+def create_department(
+    payload: DepartmentCreate,
+    profile: Profile = Depends(require_roles("administrator")),
+    db: Session = Depends(get_db),
+) -> Department:
+    department = Department(**payload.model_dump(), is_active=True)
+    db.add(department)
+    try:
+        db.flush()
+        _audit(db, profile, "department.created", "department", department.id, {"code": department.code})
+        db.commit()
+        db.refresh(department)
+        return department
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Department code or name already exists.") from exc
 
 
 @router.get("/wards", response_model=list[WardRead], summary="List active wards")
