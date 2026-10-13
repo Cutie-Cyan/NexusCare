@@ -53,7 +53,7 @@ class EncounterRead(BaseModel):
     chief_complaint: str | None
     clinical_notes: str | None
     started_at: datetime
-    ended_at: datetime
+    ended_at: datetime | None
     created_at: datetime
     updated_at: datetime
 
@@ -70,7 +70,7 @@ class VitalSignCreate(BaseModel):
 
     @model_validator(mode="after")
     def require_at_least_one_measurement(self):
-        if not any(getattr(self, field) is not None for field in self.model_fields):
+        if not any(value is not None for value in self.model_dump().values()):
             raise ValueError("Provide at least one vital-sign measurement.")
         if self.systolic_bp is not None and self.diastolic_bp is not None and self.systolic_bp <= self.diastolic_bp:
             raise ValueError("Systolic blood pressure must be greater than diastolic pressure.")
