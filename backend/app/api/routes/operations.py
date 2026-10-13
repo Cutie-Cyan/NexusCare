@@ -506,6 +506,32 @@ def create_online_consultation(
     return consultation
 
 
+@router.get("/online-consultations", response_model=list[OnlineConsultationRead])
+def list_online_consultations(
+    consultation_status: str | None = Query(default=None, alias="status", max_length=30),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    profile: Profile = Depends(get_current_profile),
+    db: Session = Depends(get_db),
+) -> list[OnlineConsultation]:
+    roles = _roles(profile, db)
+    statement = select(OnlineConsultation).join(
+        Appointment, Appointment.id == OnlineConsultation.appointment_id
+    )
+    if "patient" in roles and not roles.intersection(APPOINTMENT_READ_ROLES):
+        own_patient_id = db.scalar(select(Patient.id).where(Patient.patient_profile_id == profile.id))
+        if own_patient_id is None:
+            return []
+        statement = statement.where(Appointment.patient_id == own_patient_id)
+    elif not roles.intersection(APPOINTMENT_READ_ROLES | {"patient"}):
+        raise HTTPException(status_code=403, detail="Insufficient permissions.")
+    if consultation_status:
+        if consultation_status not in {"requested", "scheduled", "in_progress", "completed", "cancelled"}:
+            raise HTTPException(status_code=422, detail="Unsupported online consultation status.")
+        statement = statement.where(OnlineConsultation.status == consultation_status)
+    return list(db.scalars(statement.order_by(OnlineConsultation.id.desc()).offset(offset).limit(limit)).all())
+
+
 @router.post("/appointments/{appointment_id}/request-online-consultation", response_model=OnlineConsultationRead, status_code=status.HTTP_201_CREATED)
 def request_online_consultation(
     appointment_id: UUID,
