@@ -44,6 +44,23 @@ def _roles(profile: Profile, db: Session) -> set[str]:
     return set(get_profile_roles(profile.id, db))
 
 
+@router.get("/departments", summary="List active hospital departments")
+def list_departments(
+    profile: Profile = Depends(require_roles(
+        "administrator", "information_officer", "doctor", "nurse",
+        "cashier", "laboratory_staff", "pharmacy_staff",
+    )),
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    rows = db.scalars(
+        select(Department).where(Department.is_active.is_(True)).order_by(Department.name)
+    ).all()
+    return [{
+        "id": str(row.id), "code": row.code, "name": row.name,
+        "description": row.description, "is_active": row.is_active,
+    } for row in rows]
+
+
 @router.get("/suppliers", response_model=list[SupplierRead])
 def list_suppliers(
     profile: Profile = Depends(require_roles("administrator", "pharmacy_staff")),
