@@ -1,11 +1,12 @@
 from datetime import date, datetime
+import re
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class PatientCreate(BaseModel):
-    medical_record_number: str = Field(min_length=2, max_length=40, pattern=r"^[A-Za-z0-9_-]+$")
+    medical_record_number: str = Field(min_length=2, max_length=40)
     first_name: str = Field(min_length=1, max_length=100)
     middle_name: str | None = Field(default=None, max_length=100)
     last_name: str = Field(min_length=1, max_length=100)
@@ -25,6 +26,8 @@ class PatientCreate(BaseModel):
         value = value.strip()
         if not value:
             raise ValueError("This field cannot be blank.")
+        if not re.fullmatch(r"[A-Za-z0-9_-]+", value):
+            raise ValueError("Use only letters, numbers, hyphens, and underscores.")
         return value
 
     @field_validator("middle_name", "sex", "phone", "email", "address",
