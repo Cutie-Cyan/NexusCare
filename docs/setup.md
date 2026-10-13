@@ -36,30 +36,28 @@ uv lock
 uv sync
 cp .env.example .env
 ```
+
 Edit `backend/.env` and set:
 - `SUPABASE_URL`: existing NexusCare Supabase project URL
 - `SUPABASE_PUBLISHABLE_KEY`: the project's publishable key, used by the backend Supabase client for Auth verification
-- `DATABASE_URL`: a Postgres connection string in SQLAlchemy format, for example `postgresql+psycopg://postgres:<PASSWORD>@<HOST>:5432/postgres`
+- `DATABASE_URL`: a Postgres connection string in SQLAlchemy format, e.g. `postgresql+psycopg://postgres:<PASSWORD>@<HOST>:5432/postgres`
 
-Use the connection type recommended by Supabase for your network. Do not commit `.env`, database passwords, or secret keys.
+Use the connection type recommended by Supabase for your network. URL-encode special characters in the password where necessary. Do not commit `.env`, database passwords, or secret keys.
 
 Run the API:
 ```bash
+uv run pytest
 uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 - Health: http://127.0.0.1:8000/api/v1/health
 - API docs: http://127.0.0.1:8000/docs
 
-## Phase 2 database migration
+## Database migration
 **Review the migration and verify the target project before running this against Supabase.** The migration creates tables and enables row-level security. Do not run it against production data without a backup and review.
 
 From `backend/`, with `DATABASE_URL` configured:
 ```bash
 uv run alembic upgrade head
-```
-
-To check the migration version:
-```bash
 uv run alembic current
 ```
 
@@ -67,33 +65,23 @@ To seed fictional development data after the migration:
 ```bash
 uv run python scripts/seed_demo.py
 ```
-The default seed creates role and reference records plus 20 fictional patients. Do not use real patient information. To also create five fictional doctor accounts in the existing Supabase Auth project, first set the server-only `SUPABASE_SECRET_KEY` and a development-only `SEED_DOCTOR_PASSWORD` (at least 12 characters) in `backend/.env`, then explicitly run:
+The default seed creates role and reference records plus 20 fictional patients. Do not use real patient information. To also create five fictional doctor accounts in the existing Supabase Auth project, first set the server-only `SUPABASE_SECRET_KEY` and a development-only `SEED_DOCTOR_PASSWORD` (at least 12 characters) in `backend/.env`, then explicitly run `uv run python scripts/seed_demo.py --create-auth-users`. This modifies Supabase Auth, so only run it when you intentionally want those demo accounts. Never use the demo password in production.
 
-```bash
-uv run python scripts/seed_demo.py --create-auth-users
-```
+## Phase 3: Patients API
+- Run `uv run pytest` before starting the API.
+- Start FastAPI and open http://127.0.0.1:8000/docs.
+- Authenticate with a valid Supabase access token to try the patient endpoints.
+- Registration, demographic updates, and deactivation are limited to the administrator and information officer roles.
+- A patient account can only read/list the patient record linked to its own NexusCare profile.
+- Deactivation is a soft action (`is_active = false`), not a hard delete.
+- Patient changes are logged in `audit_logs`.
 
-This creates/links five confirmed demo doctor accounts and assigns the doctor role. It modifies Supabase Auth, so only run it when you intentionally want those demo accounts. Never use the demo password in production. `uv lock` generates the dependency lockfile; commit `backend/uv.lock` after it is generated in an environment with package registry access.
+Staff access is role-gated for this initial phase, but patient/encounter/department scope must be tightened before production deployment. The direct SQLAlchemy connection is privileged separately from Supabase RLS; FastAPI must enforce authorization for every route.
 
-## Authentication and authorization foundation
-- Supabase Auth verifies the bearer access token.
-- `GET /api/v1/auth/me` returns the signed-in identity and assigned NexusCare role codes.
-- `GET /api/v1/admin/access-check` requires the `administrator` role.
-- The role must be assigned to the matching profile in `profiles` and `user_roles`; never accept a role supplied by the frontend.
-- Sensitive tables use RLS and default-deny policies. FastAPI routes must still enforce role and record-level authorization.
-- The Phase 2 role-check endpoint is a foundation, not a complete staff account management interface.
+## Current implementation status
+- Phase 1: repository, app scaffolding, documentation.
+- Phase 2: schema/migration foundation, Supabase Auth verification, RBAC dependency, fictional seed script.
+- Phase 3: patient registration, search, retrieval, demographic update, and soft deactivation endpoints.
+- Not yet implemented: admissions, beds, clinical encounters, nursing, labs, pharmacy, billing, inventory, appointments, notifications UI, and analytics workflows.
 
-## Phase 2 test checklist
-- [ ] `uv sync` completes and dependencies are locked.
-- [ ] `uv run pytest` passes.
-- [ ] API starts and health endpoint responds.
-- [ ] Migration runs on a reviewed development database.
-- [ ] RLS is enabled for every application table.
-- [ ] Seed command can be run more than once without duplicating seed records.
-- [ ] Missing/invalid bearer token is rejected by the auth endpoint.
-- [ ] A valid Supabase user without an active profile cannot access role-protected routes.
-- [ ] A non-administrator cannot access `/api/v1/admin/access-check`.
-- [ ] No credentials or real patient data are committed.
-
-## Known Phase 2 limits
-The models and authentication/authorization foundations are in place, but patient CRUD, admissions, clinical, laboratory, pharmacy, billing, and inventory API workflows are future phases. No end-to-end hospital workflow is claimed complete yet.
+Generate and commit `backend/uv.lock` in an environment with package registry access. Do not commit `.env` or any secrets.
