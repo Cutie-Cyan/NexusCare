@@ -16,7 +16,7 @@ from app.models import (
 )
 from app.schemas.billing import (
     BillBalanceRead, BillCreate, BillItemRead, BillRead, PaymentCreate,
-    PaymentRead, PaymentReversal,
+    PaymentRead, PaymentReversal, ServiceCatalogCreate, ServiceCatalogUpdate,
 )
 
 router = APIRouter(tags=["billing and payments"])
@@ -57,6 +57,51 @@ def list_service_catalog(
         ServiceCatalog.category, ServiceCatalog.price, ServiceCatalog.is_active,
     ).where(ServiceCatalog.is_active.is_(True)).order_by(ServiceCatalog.category, ServiceCatalog.name)).mappings().all()
     return [dict(row) for row in rows]
+
+
+
+@router.post("/service-catalog", status_code=status.HTTP_201_CREATED, summary="Create a configurable service fee")
+def create_service_catalog_item(
+    payload: ServiceCatalogCreate,
+    profile: Profile = Depends(require_roles("administrator")),
+    db: Session = Depends(get_db),
+) -> dict:
+    item = ServiceCatalog(**payload.model_dump())
+    db.add(item)
+    try:
+        db.flush()
+        _audit(db, profile, "service_fee.created", "service_catalog", item.id, {
+            "code": item.code, "category": item.category, "price": str(item.price),
+        })
+        db.commit()
+        db.refresh(item)
+        return {"id": str(item.id), "code": item.code, "name": item.name, "category": item.category, "price": item.price, "is_active": item.is_active}
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Service code already exists.") from exc
+
+
+@router.patch("/service-catalog/{service_id}", summary="Update a configurable service fee")
+def update_service_catalog_item(
+    service_id: UUID,
+    payload: ServiceCatalogUpdate,
+    profile: Profile = Depends(require_roles("administrator")),
+    db: Session = Depends(get_db),
+) -> dict:
+    item = db.scalar(select(ServiceCatalog).where(ServiceCatalog.id == service_id).with_for_update())
+    if item is None:
+        raise HTTPException(status_code=404, detail="Service catalog item not found.")
+    changes = payload.model_dump(exclude_unset=True)
+    if not changes:
+        raise HTTPException(status_code=400, detail="No fields supplied.")
+    for field, value in changes.items():
+        setattr(item, field, value)
+    _audit(db, profile, "service_fee.updated", "service_catalog", item.id, {
+        "fields": sorted(changes.keys()), "price": str(item.price), "is_active": item.is_active,
+    })
+    db.commit()
+    db.refresh(item)
+    return {"id": str(item.id), "code": item.code, "name": item.name, "category": item.category, "price": item.price, "is_active": item.is_active}
 
 
 @router.get("/bills", response_model=list[BillRead], summary="List bills")
