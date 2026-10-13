@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_profile, get_profile_roles, require_roles
 from app.db.session import get_db
+from app.core.notifications import notify_roles
 from app.models import AuditLog, Patient, Profile
 from app.schemas.patient import PatientCreate, PatientRead, PatientUpdate
 
@@ -91,6 +92,9 @@ def create_patient(
     try:
         db.flush()
         _audit(db, profile, "patient.created", patient, {"medical_record_number": patient.medical_record_number})
+        notify_roles(db, {"administrator", "doctor", "nurse", "information_officer"},
+                     "New patient registered", "A new patient record is available to authorized staff.",
+                     "patient_registration", exclude_profile_id=profile.id)
         db.commit()
         db.refresh(patient)
         return patient
