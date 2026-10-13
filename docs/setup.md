@@ -105,7 +105,7 @@ After the database connection is configured and the migration baseline is confir
 uv run python scripts/seed_demo.py
 ```
 
-This idempotently seeds role and department reference records, service/lab/medicine catalog items, 20 fictional patients, five wards, 30 fictional beds, two fictional suppliers, and three general-supply inventory items with ledger entries. No real patient information should be used.
+This idempotently seeds role and department reference records, service/lab/medicine catalog items, 20 fictional patients, nine departments, five wards, 30 fictional beds, two fictional suppliers, and three general-supply inventory items with ledger entries. No real patient information should be used.
 
 Optional: create five fictional doctor accounts only if you intentionally want them in the Supabase Auth project. Set server-only `SUPABASE_SECRET_KEY` and a development-only `SEED_DOCTOR_PASSWORD` (at least 12 characters) in `backend/.env`, then run `uv run python scripts/seed_demo.py --create-auth-users`. Never use demo credentials in production.
 
@@ -121,7 +121,7 @@ Optional: create five fictional doctor accounts only if you intentionally want t
 - Phase 9: bills, service-fee administration, automatic lab/professional/pharmacy charges, idempotent payments, receipts, and audited reversals.
 - Phase 10: inventory/suppliers, procurement approvals and receiving, appointments/online consultations, notifications, whiteboard summary, settings, and reports.
 - Phase 11: administrator audit search, staff provisioning/role management, billing-aware discharge exceptions, and documented RLS/RBAC review.
-- Phase 12: Supabase sign-in, role-aware navigation, authenticated API client, live dashboards and notifications, plus forms for patient history, admissions, clinical notes/vitals, emergency triage, laboratory results, pharmacy/dispensing, inventory, procurement, appointments, billing/payments, service fees, and staff provisioning. Departments, reports, receipts, audit logs, and settings currently have read-only API views.
+- Phase 12: Supabase sign-in, role-aware navigation, authenticated API client, live dashboards and notifications, plus workflows for patient history/registration, admissions, ward/bed occupancy, departments, clinical notes/vitals, emergency triage, laboratory results, pharmacy/dispensing, inventory, procurement, appointments, billing/payments, service fees, staff provisioning/role/status management, receipts, reports, audit search, and system settings. End-to-end integration tests and tighter department/care-team access scoping remain required.
 
 ## Security note
 Direct SQLAlchemy access does not automatically enforce Supabase RLS based on the signed-in user. FastAPI role checks currently protect these routes, but staff access must be tightened to department/encounter-specific scopes before production. See `docs/security-review.md`. Do not use real patient data.
