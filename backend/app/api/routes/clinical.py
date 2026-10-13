@@ -311,6 +311,13 @@ def list_emergency_events(
         if scope.int == 0:
             return []
         statement = statement.where(EmergencyEvent.patient_id == scope)
+    elif "administrator" not in roles:
+        from sqlalchemy import or_
+        statement = statement.join(Encounter, Encounter.id == EmergencyEvent.encounter_id)
+        scope_conditions = [Encounter.clinician_id == profile.id]
+        if profile.department_id is not None:
+            scope_conditions.append(Encounter.department_id == profile.department_id)
+        statement = statement.where(or_(*scope_conditions))
     if event_status:
         if event_status not in {"waiting", "in_treatment", "transferred", "completed"}:
             raise HTTPException(status_code=422, detail="Unsupported emergency status.")
@@ -348,6 +355,7 @@ def create_emergency_event(
         roles = _roles(profile, db)
         encounter = Encounter(
             patient_id=patient.id,
+            department_id=profile.department_id,
             clinician_id=profile.id if roles.intersection({"doctor", "nurse"}) else None,
             encounter_type="emergency",
             status="open",
@@ -393,6 +401,10 @@ def update_emergency_triage(
     ).with_for_update())
     if event is None:
         raise HTTPException(status_code=404, detail="Emergency event not found.")
+    if event.encounter_id is None:
+        raise HTTPException(status_code=403, detail="Emergency event has no assigned encounter.")
+    encounter = _get_encounter_or_404(db, event.encounter_id)
+    ensure_encounter_access(profile, encounter, db)
     event.triage_level = payload.triage_level
     event.status = payload.status
     event.triaged_by = profile.id
