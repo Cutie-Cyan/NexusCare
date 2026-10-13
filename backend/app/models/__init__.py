@@ -501,3 +501,37 @@ class EmergencyEvent(Base):
     status: Mapped[str] = mapped_column(String(30), default="waiting", index=True)
     arrived_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     triaged_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("profiles.id", ondelete="SET NULL"), nullable=True)
+
+
+class ProcurementRequest(Base, TimestampMixin):
+    __tablename__ = "procurement_requests"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    request_number: Mapped[str] = mapped_column(String(50), unique=True)
+    supplier_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("suppliers.id", ondelete="SET NULL"), nullable=True)
+    requested_by: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("profiles.id", ondelete="RESTRICT"))
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("profiles.id", ondelete="SET NULL"), nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="draft", index=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ProcurementItem(Base):
+    __tablename__ = "procurement_items"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    request_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("procurement_requests.id", ondelete="RESTRICT"), index=True)
+    inventory_item_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("inventory_items.id", ondelete="RESTRICT"))
+    requested_quantity: Mapped[Decimal] = mapped_column(Numeric(12, 3))
+    received_quantity: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=Decimal("0"))
+    unit_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class ReceivingRecord(Base):
+    __tablename__ = "receiving_records"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    procurement_item_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("procurement_items.id", ondelete="RESTRICT"), index=True)
+    quantity_received: Mapped[Decimal] = mapped_column(Numeric(12, 3))
+    received_by: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("profiles.id", ondelete="RESTRICT"))
+    supplier_reference: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
