@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_profile, get_profile_roles, require_roles
+from app.api.deps import ensure_encounter_access, get_current_profile, get_profile_roles, require_roles
 from app.db.session import get_db
 from app.core.notifications import notify_roles
 from app.models import (
@@ -67,6 +67,8 @@ def _ensure_encounter_read_access(
         raise HTTPException(status_code=404, detail="Encounter not found.")
     if scope is None and not roles.intersection(CLINICAL_READ_ROLES):
         raise HTTPException(status_code=403, detail="Insufficient permissions.")
+    if roles.intersection(CLINICAL_READ_ROLES):
+        ensure_encounter_access(profile, encounter, db)
 
 
 @router.get("/encounters", response_model=list[EncounterRead], summary="List clinical encounters")
@@ -172,6 +174,7 @@ def update_encounter(
     changes = payload.model_dump(exclude_unset=True)
     if not changes:
         raise HTTPException(status_code=400, detail="No fields supplied.")
+    ensure_encounter_access(profile, encounter, db)
     if encounter.status in {"completed", "cancelled"}:
         raise HTTPException(status_code=409, detail="Closed encounters cannot be changed.")
     if changes.get("status") == "cancelled" and encounter.status != "open":
@@ -218,6 +221,7 @@ def create_vitals(
     db: Session = Depends(get_db),
 ) -> VitalSign:
     encounter = _get_encounter_or_404(db, encounter_id)
+    ensure_encounter_access(profile, encounter, db)
     if encounter.status in {"completed", "cancelled"}:
         raise HTTPException(status_code=409, detail="Cannot add vital signs to a closed encounter.")
     record = VitalSign(encounter_id=encounter.id, recorded_by=profile.id, **payload.model_dump())
@@ -259,6 +263,7 @@ def create_diagnosis(
     db: Session = Depends(get_db),
 ) -> Diagnosis:
     encounter = _get_encounter_or_404(db, encounter_id)
+    ensure_encounter_access(profile, encounter, db)
     if encounter.status in {"completed", "cancelled"}:
         raise HTTPException(status_code=409, detail="Cannot add a diagnosis to a closed encounter.")
     if payload.is_primary:
