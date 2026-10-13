@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_profile, get_profile_roles, require_roles
 from app.db.session import get_db
+from app.core.notifications import notify_roles
 from app.models import Admission, AuditLog, Bed, Department, Patient, Profile, Ward, WardTransfer
 from app.schemas.admission import (
     AdmissionCreate, AdmissionRead, BedCreate, BedRead, BedTransferCreate,
@@ -205,6 +206,9 @@ def create_admission(
         _audit(db, profile, "admission.created", "admission", admission.id, {
             "patient_id": str(patient.id), "bed_id": str(bed.id) if bed else None,
         })
+        notify_roles(db, {"doctor", "nurse"}, "New admission",
+                     "A patient admission was recorded. Open the authorized admissions queue for details.",
+                     "admission", exclude_profile_id=profile.id)
         db.commit()
         db.refresh(admission)
         return admission
@@ -258,6 +262,8 @@ def transfer_admission(
         _audit(db, profile, "admission.transferred", "admission", admission.id, {
             "from_bed_id": str(old_bed.id), "to_bed_id": str(new_bed.id),
         })
+        notify_roles(db, {"doctor", "nurse"}, "Ward transfer recorded",
+                     "A ward or bed transfer was completed.", "admission", exclude_profile_id=profile.id)
         db.commit()
         db.refresh(admission)
         return admission
@@ -293,6 +299,8 @@ def discharge_patient(
             "patient_id": str(admission.patient_id),
             "bed_id": str(admission.bed_id) if admission.bed_id else None,
         })
+        notify_roles(db, {"doctor", "nurse", "cashier"}, "Discharge recorded",
+                     "A discharge was completed and bed availability was updated.", "admission", exclude_profile_id=profile.id)
         db.commit()
         db.refresh(admission)
         return admission
