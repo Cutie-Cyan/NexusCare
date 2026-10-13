@@ -30,6 +30,8 @@ class StaffCreate(BaseModel):
         normalized = [value.strip().lower() for value in values]
         if not all(normalized) or len(normalized) != len(set(normalized)):
             raise ValueError("Role codes must be nonblank and unique.")
+        if "patient" in normalized and len(normalized) > 1:
+            raise ValueError("Patient role must be assigned exclusively.")
         return normalized
 
 
@@ -42,6 +44,8 @@ class StaffRolesUpdate(BaseModel):
         normalized = [value.strip().lower() for value in values]
         if not all(normalized) or len(normalized) != len(set(normalized)):
             raise ValueError("Role codes must be nonblank and unique.")
+        if "patient" in normalized and len(normalized) > 1:
+            raise ValueError("Patient role must be assigned exclusively.")
         return normalized
 
 
