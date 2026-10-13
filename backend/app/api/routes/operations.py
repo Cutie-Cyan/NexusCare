@@ -400,6 +400,8 @@ def create_appointment(
             raise HTTPException(status_code=403, detail="Your account is not linked to a patient record.")
         patient_id = own_patient_id
     elif roles.intersection(set(APPOINTMENT_CREATE_ROLES)):
+        if payload.patient_id is None:
+            raise HTTPException(status_code=422, detail="Staff must select a patient for the appointment.")
         patient_id = payload.patient_id
     else:
         raise HTTPException(status_code=403, detail="Insufficient permissions.")
@@ -416,6 +418,14 @@ def create_appointment(
         ))
         if clinician is None or "doctor" not in _roles(clinician, db):
             raise HTTPException(status_code=422, detail="Clinician must be an active doctor.")
+        schedule_rows = db.scalars(select(DoctorSchedule).where(
+            DoctorSchedule.doctor_id == payload.clinician_id,
+            DoctorSchedule.weekday == payload.scheduled_at.weekday(),
+            DoctorSchedule.is_active.is_(True),
+        )).all()
+        requested_time = payload.scheduled_at.strftime("%H:%M")
+        if schedule_rows and not any(row.start_time <= requested_time < row.end_time for row in schedule_rows):
+            raise HTTPException(status_code=422, detail="Requested time falls outside the clinician schedule.")
         conflict = db.scalar(select(Appointment.id).where(
             Appointment.clinician_id == payload.clinician_id,
             Appointment.scheduled_at == payload.scheduled_at,
