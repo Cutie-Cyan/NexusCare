@@ -5,6 +5,39 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
+class DepartmentCreate(BaseModel):
+    code: str = Field(min_length=2, max_length=40)
+    name: str = Field(min_length=2, max_length=120)
+    description: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("code")
+    @classmethod
+    def normalize_department_code(cls, value: str) -> str:
+        value = value.strip().upper()
+        if not re.fullmatch(r"[A-Z0-9_-]{2,40}", value):
+            raise ValueError("Use 2–40 letters, numbers, hyphens, or underscores.")
+        return value
+
+    @field_validator("name")
+    @classmethod
+    def normalize_department_name(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Department name cannot be blank.")
+        return value
+
+
+class DepartmentRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    code: str
+    name: str
+    description: str | None
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+
 class WardCreate(BaseModel):
     code: str = Field(min_length=2, max_length=40)
     name: str = Field(min_length=2, max_length=120)
