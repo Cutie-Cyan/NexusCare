@@ -6,11 +6,11 @@ NexusCare is a capstone project integrating patient information, clinical servic
 
 ## Current implementation status
 
-The `develop` branch contains a FastAPI backend for patient records and history, admissions/wards/beds, emergency triage, clinical encounters and notes, laboratory orders/results and billing eligibility, pharmacy/prescriptions/dispensing, itemized billing/payments/receipts, inventory/procurement/receiving, appointments/online consultations, notifications, reporting, settings, staff provisioning, and audit search.
+The `develop` branch contains a FastAPI backend for authentication/RBAC, patient demographics and history, admissions/wards/beds, emergency triage, encounters/vitals/diagnoses, consultation and nursing notes, laboratory orders/results/release, prescriptions/dispensing, itemized billing/payments/receipts, service fees, inventory/procurement/receiving, appointments/online consultations, notifications, whiteboard metrics, reporting, system settings, staff provisioning, and audit search.
 
-The connected Supabase project currently has **43 public tables** with RLS enabled and fictional demo reference data. The demo seed includes 20 fictional patients, 5 wards, 30 beds, service/laboratory/medicine catalogs, 2 fictional suppliers, and 3 fictional general-supply inventory items. No Auth demo accounts have been created because server-only secrets and passwords have not been configured.
+The connected Supabase project has **43 public tables** with RLS enabled and fictional demo reference data. The seed currently includes 20 fictional patients, 5 wards, 30 beds, service/laboratory/medicine catalogs, 2 fictional suppliers, and 3 fictional general-supply inventory items. No Auth demo accounts have been created. A first administrator must be bootstrapped manually; see [Local Setup](docs/setup.md).
 
-The React frontend now uses Supabase Auth, a bearer-token API client, role-aware navigation, live dashboards, notifications, and operational forms for patient registration/history, admissions/transfers/discharge, clinical encounters/notes/vitals, emergency triage, laboratory results, pharmacy/dispensing, inventory, procurement, appointments, billing/payments, service fees, and staff provisioning. Departments, reports, receipts, audit logs, and settings currently use read-only API views.
+The React frontend includes Supabase Auth, role-aware navigation, a live dashboard and ward whiteboard, patient registration/edit/history, admissions and bed workflows, clinical and nursing workflows, emergency triage, lab result processing, pharmacy dispensing, inventory, procurement, appointments/online consultations, billing/payments/receipts, service fees, staff provisioning, department listing, reporting, audit search, and settings editing. Some module tables remain read-only views; see [Phase Status](docs/phase-status.md) for the implemented scope and remaining work.
 
 ## Stack
 
@@ -21,8 +21,8 @@ The React frontend now uses Supabase Auth, a bearer-token API client, role-aware
 
 ## Start here
 
-Follow [Local Setup](docs/setup.md) before running the frontend or backend. Review [Architecture](docs/architecture.md), [role permissions](docs/role-permissions.md), and [Security Review](docs/security-review.md).
+Follow [Local Setup](docs/setup.md). Review [Architecture](docs/architecture.md), [role permissions](docs/role-permissions.md), [Security Review](docs/security-review.md), and [Phase Status](docs/phase-status.md).
 
-**Important:** the initial schema and procurement extension have been applied through the Supabase migration integration. The local Alembic baseline still needs to be reconciled, so do not run `alembic upgrade head` against the already-migrated Supabase project yet.
+**Important:** the schema was applied through the Supabase migration integration. The local Alembic baseline still needs reconciliation, so do not run `alembic upgrade head` against the already-migrated Supabase project yet.
 
 Never commit real credentials or use real patient data during development. This project is not ready for real clinical or production use without further security, privacy, clinical, and workflow validation.
