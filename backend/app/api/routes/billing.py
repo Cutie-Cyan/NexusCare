@@ -20,7 +20,7 @@ from app.schemas.billing import (
 )
 
 router = APIRouter(tags=["billing and payments"])
-BILL_READ_ROLES = {"administrator", "information_officer", "doctor", "nurse", "cashier"}
+BILL_READ_ROLES = {"administrator", "information_officer", "cashier"}
 BILL_WRITE_ROLES = ("administrator", "cashier")
 
 
