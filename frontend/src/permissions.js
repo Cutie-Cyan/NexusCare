@@ -3,7 +3,7 @@ export const ROLE_PATHS = {
   information_officer: ['/', '/patients', '/registration', '/admissions', '/emergency', '/wards', '/appointments', '/reports'],
   doctor: ['/', '/patients', '/admissions', '/emergency', '/wards', '/consultations', '/laboratory', '/prescriptions', '/appointments', '/online-consultation'],
   nurse: ['/', '/patients', '/admissions', '/emergency', '/wards', '/nursing', '/laboratory', '/appointments'],
-  cashier: ['/', '/patients', '/billing', '/payments', '/receipts', '/reports'],
+  cashier: ['/', '/patients', '/laboratory', '/billing', '/payments', '/receipts', '/reports'],
   laboratory_staff: ['/', '/laboratory'],
   pharmacy_staff: ['/', '/prescriptions', '/pharmacy', '/inventory', '/procurement'],
   patient: ['/', '/patients', '/appointments', '/online-consultation', '/billing', '/receipts'],
