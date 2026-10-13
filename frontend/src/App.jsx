@@ -39,9 +39,9 @@ const pages = [
 const apiEndpoints = {
   '/admissions': '/admissions?limit=50',
   '/emergency': '/emergency-events?limit=50',
-  '/wards': '/wards',
-  '/consultations': '/encounters?limit=50',
-  '/nursing': '/encounters?limit=50',
+  '/wards': '/ward-overview',
+  '/consultations': '/consultation-notes?limit=50',
+  '/nursing': '/nursing-notes?limit=50',
   '/laboratory': '/laboratory-orders?limit=50',
   '/prescriptions': '/prescriptions?limit=50',
   '/pharmacy': '/pharmacy/stock',
