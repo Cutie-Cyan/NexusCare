@@ -22,7 +22,7 @@ export function StaffPage() {
       full_name: form.full_name.trim(), email: form.email.trim(),
       initial_password: form.initial_password, role_codes: roleCodes,
       department_id: form.department_id.trim() || null,
-      patient_id: form.patient_id.trim() || null,
+      patient_id: roleCodes.includes('patient') ? (form.patient_id.trim() || null) : null,
     } }),
     onSuccess: () => {
       setForm(initialForm)
