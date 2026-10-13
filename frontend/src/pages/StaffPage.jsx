@@ -14,6 +14,9 @@ const initialForm = { full_name: '', email: '', initial_password: '', department
 export function StaffPage() {
   const [form, setForm] = useState(initialForm)
   const [roleCodes, setRoleCodes] = useState(['doctor'])
+  const [selectedProfileId, setSelectedProfileId] = useState('')
+  const [editRoleCodes, setEditRoleCodes] = useState([])
+  const [editActive, setEditActive] = useState(true)
   const [error, setError] = useState('')
   const queryClient = useQueryClient()
   const staff = useQuery({ queryKey: ['staff'], queryFn: () => apiRequest('/admin/staff?limit=200') })
@@ -32,6 +35,31 @@ export function StaffPage() {
     },
     onError: err => setError(err.message || 'Account creation failed.'),
   })
+
+  const selectedProfile = (staff.data || []).find(row => row.profile_id === selectedProfileId)
+  const updateRoles = useMutation({
+    mutationFn: () => apiRequest('/admin/staff/' + selectedProfileId + '/roles', { method: 'PATCH', body: { role_codes: editRoleCodes } }),
+    onSuccess: () => { setError(''); queryClient.invalidateQueries({ queryKey: ['staff'] }) },
+    onError: err => setError(err.message),
+  })
+  const updateStatus = useMutation({
+    mutationFn: () => apiRequest('/admin/staff/' + selectedProfileId + '/status', { method: 'PATCH', body: { is_active: editActive } }),
+    onSuccess: () => { setError(''); queryClient.invalidateQueries({ queryKey: ['staff'] }) },
+    onError: err => setError(err.message),
+  })
+  function chooseProfile(row) {
+    setSelectedProfileId(row.profile_id)
+    setEditRoleCodes(row.roles || [])
+    setEditActive(Boolean(row.is_active))
+    setError('')
+  }
+  function toggleEditRole(role, checked) {
+    if (role === 'patient') { setEditRoleCodes(checked ? ['patient'] : []); return }
+    setEditRoleCodes(current => {
+      const withoutPatient = current.filter(item => item !== 'patient')
+      return checked ? [...new Set([...withoutPatient, role])] : withoutPatient.filter(item => item !== role)
+    })
+  }
 
   function toggleRole(role, checked) {
     if (role === 'patient') { setRoleCodes(checked ? ['patient'] : []); return }
@@ -70,6 +98,7 @@ export function StaffPage() {
     {staff.isPending ? <div className="empty-state">Loading staff profiles…</div>
       : staff.isError ? <div className="error-panel"><strong>Could not load staff</strong><p>{staff.error.message}</p></div>
       : rows.length === 0 ? <div className="empty-state"><Users size={24}/><strong>No profiles found</strong><span>Create the first administrator manually as documented in docs/setup.md.</span></div>
-      : <div className="data-table-wrap"><table className="data-table"><thead><tr><th>Name</th><th>Email</th><th>Roles</th><th>Status</th></tr></thead><tbody>{rows.map(row => <tr key={row.profile_id}><td><strong>{row.full_name}</strong></td><td>{row.email}</td><td>{(row.roles || []).join(', ') || 'No roles'}</td><td>{row.is_active ? 'Active' : 'Inactive'}</td></tr>)}</tbody></table></div>}
+      : <div className="data-table-wrap"><table className="data-table"><thead><tr><th>Name</th><th>Email</th><th>Roles</th><th>Status</th><th>Action</th></tr></thead><tbody>{rows.map(row => <tr key={row.profile_id}><td><strong>{row.full_name}</strong></td><td>{row.email}</td><td>{(row.roles || []).join(', ') || 'No roles'}</td><td>{row.is_active ? 'Active' : 'Inactive'}</td><td><button className="table-action" onClick={() => chooseProfile(row)}>Manage</button></td></tr>)}</tbody></table></div>}
+    {selectedProfile && <form className="data-form" onSubmit={event => { event.preventDefault(); setError(''); updateRoles.mutate() }}><h2>Manage {selectedProfile.full_name}</h2><div className="role-picker"><strong>Role assignments</strong><div>{availableRoles.map(([code, label]) => <label key={code}><input type="checkbox" checked={editRoleCodes.includes(code)} onChange={event => toggleEditRole(code, event.target.checked)}/><span>{label}</span></label>)}</div></div><button className="primary-button" type="submit" disabled={!editRoleCodes.length || updateRoles.isPending}>{updateRoles.isPending ? 'Saving roles…' : 'Save roles'}</button><div className="form-grid"><label>Account status<select value={editActive ? 'active' : 'inactive'} onChange={event => setEditActive(event.target.value === 'active')}><option value="active">Active</option><option value="inactive">Inactive</option></select></label></div><button className="secondary-button" type="button" disabled={updateStatus.isPending || editActive === Boolean(selectedProfile.is_active)} onClick={() => { setError(''); updateStatus.mutate() }}>{updateStatus.isPending ? 'Updating…' : 'Update account status'}</button>{error && <p className="form-error" role="alert">{error}</p>}<p className="disclaimer">Changing roles takes effect on the next API request. The server prevents administrators from deactivating their own profile.</p></form>}
   </section>
 }
