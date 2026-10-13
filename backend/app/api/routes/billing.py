@@ -91,7 +91,7 @@ def update_service_catalog_item(
     item = db.scalar(select(ServiceCatalog).where(ServiceCatalog.id == service_id).with_for_update())
     if item is None:
         raise HTTPException(status_code=404, detail="Service catalog item not found.")
-    changes = payload.model_dump(exclude_unset=True)
+    changes = {key: value for key, value in payload.model_dump(exclude_unset=True).items() if value is not None}
     if not changes:
         raise HTTPException(status_code=400, detail="No fields supplied.")
     for field, value in changes.items():
