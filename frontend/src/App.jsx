@@ -7,11 +7,11 @@ import { DashboardPage } from './pages/DashboardPage.jsx'
 import { LoginPage } from './pages/LoginPage.jsx'
 import { PatientsPage } from './pages/PatientsPage.jsx'
 import { PlaceholderPage } from './pages/PlaceholderPage.jsx'
+import { ApiListPage } from './pages/ApiListPage.jsx'
 import { apiRequest } from './lib/api.js'
 import { canAccessPath } from './permissions.js'
 
 const pages = [
-  ['/registration', 'Registration', 'Patient registration and demographic updates are available through the patient API; a dedicated registration workflow is still being refined.'],
   ['/admissions', 'Admissions', 'Admission, transfer, discharge, ward, and bed APIs are available. Dedicated workflow screens remain in progress.'],
   ['/emergency', 'Emergency Room', 'Emergency registration and triage APIs are available for authorized clinical roles.'],
   ['/wards', 'Wards & Beds', 'Ward and bed availability APIs are available.'],
@@ -34,6 +34,30 @@ const pages = [
   ['/audit-logs', 'Audit Logs', 'Administrators can search the audit trail through the API.'],
   ['/settings', 'Settings', 'Administrator-only system-setting APIs are available.'],
 ]
+
+const apiEndpoints = {
+  '/admissions': '/admissions?limit=50',
+  '/emergency': '/emergency-events?limit=50',
+  '/wards': '/wards',
+  '/consultations': '/encounters?limit=50',
+  '/nursing': '/encounters?limit=50',
+  '/laboratory': '/laboratory-orders?limit=50',
+  '/prescriptions': '/prescriptions?limit=50',
+  '/pharmacy': '/pharmacy/stock',
+  '/inventory': '/inventory/items',
+  '/procurement': '/procurement/requests?limit=50',
+  '/appointments': '/appointments?limit=50',
+  '/online-consultation': '/online-consultations?limit=50',
+  '/billing': '/bills?limit=50',
+  '/payments': '/payments?limit=50',
+  '/receipts': '/receipts?limit=50',
+  '/staff': '/admin/staff?limit=100',
+  '/departments': '/departments',
+  '/service-fees': '/service-catalog',
+  '/reports': '/reports/summary',
+  '/audit-logs': '/admin/audit-logs?limit=50',
+  '/settings': '/system-settings',
+}
 
 function ProfileIncomplete({ onSignOut }) {
   return <main className="auth-page"><section className="auth-card"><h1>Account setup is incomplete</h1><p className="auth-description">You are authenticated, but your account does not have an active NexusCare profile and role assignment yet. Ask the administrator to finish account setup.</p><button className="primary-button" onClick={onSignOut}>Sign out</button></section></main>
@@ -72,8 +96,9 @@ function AuthenticatedWorkspace() {
     <AppLayout theme={theme} onToggleTheme={toggleTheme} userEmail={session.user?.email} onSignOut={handleSignOut} roles={roles}>
       <Routes>
         <Route path="/" element={<DashboardPage roles={roles} />} />
-        <Route path="/patients" element={canAccessPath(roles, '/patients') ? <PatientsPage /> : <Navigate to="/" replace />} />
-        {pages.map(([path, title, description]) => <Route key={path} path={path} element={canAccessPath(roles, path) ? <PlaceholderPage title={title} description={description} /> : <Navigate to="/" replace />} />)}
+        <Route path="/patients" element={canAccessPath(roles, '/patients') ? <PatientsPage roles={roles} /> : <Navigate to="/" replace />} />
+        <Route path="/registration" element={canAccessPath(roles, '/registration') ? <Navigate to="/patients" replace /> : <Navigate to="/" replace />} />
+        {pages.map(([path, title, description]) => <Route key={path} path={path} element={canAccessPath(roles, path) ? (apiEndpoints[path] ? <ApiListPage title={title} description={description} endpoint={apiEndpoints[path]} /> : <PlaceholderPage title={title} description={description} />) : <Navigate to="/" replace />} />)}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppLayout>
