@@ -80,6 +80,15 @@ class AdmissionCreate(BaseModel):
         return value
 
 
+class DischargeRequest(BaseModel):
+    discharge_notes: str | None = Field(default=None, max_length=5000)
+
+    @field_validator("discharge_notes")
+    @classmethod
+    def normalize_notes(cls, value: str | None) -> str | None:
+        return value.strip() or None if value is not None else None
+
+
 class AdmissionRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
