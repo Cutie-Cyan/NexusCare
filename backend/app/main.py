@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes.admin import router as admin_router
 from app.api.routes.admissions import router as admissions_router
 from app.api.routes.auth import router as auth_router
+from app.api.routes.clinical import router as clinical_router
 from app.api.routes.health import router as health_router
 from app.api.routes.patients import router as patients_router
 from app.core.config import get_settings
@@ -12,7 +13,7 @@ settings = get_settings()
 app = FastAPI(
     title=settings.app_name,
     description="NexusCare hospital information and resource management REST API.",
-    version="0.4.0",
+    version="0.5.0",
 )
 app.add_middleware(
     CORSMiddleware,
@@ -26,6 +27,7 @@ app.include_router(auth_router, prefix=settings.api_v1_prefix)
 app.include_router(admin_router, prefix=settings.api_v1_prefix)
 app.include_router(patients_router, prefix=settings.api_v1_prefix)
 app.include_router(admissions_router, prefix=settings.api_v1_prefix)
+app.include_router(clinical_router, prefix=settings.api_v1_prefix)
 
 
 @app.get("/", tags=["root"], include_in_schema=False)
