@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_profile, get_profile_roles, require_roles
 from app.db.session import get_db
 from app.models import (
-    Appointment, AuditLog, Department, DoctorSchedule, InventoryItem,
-    InventoryItemTransaction, Notification, OnlineConsultation, Patient,
+    Admission, Appointment, AuditLog, Bill, Department, DoctorSchedule, InventoryItem,
+    InventoryItemTransaction, Notification, OnlineConsultation, Patient, Payment,
     Profile, Supplier, SystemSetting,
 )
 from app.schemas.operations import (
@@ -398,17 +398,15 @@ def reports_summary(
     db: Session = Depends(get_db),
 ) -> dict:
     patient_count = int(db.scalar(select(func.count(Patient.id)).where(Patient.is_active.is_(True))) or 0)
-    active_admissions = int(db.scalar(select(func.count()).select_from(__import__("app.models", fromlist=["Admission"]).Admission).where(
-        __import__("app.models", fromlist=["Admission"]).Admission.status == "admitted"
-    )) or 0)
+    active_admissions = int(db.scalar(select(func.count(Admission.id)).where(Admission.status == "admitted")) or 0)
     appointment_count = int(db.scalar(select(func.count(Appointment.id)).where(
         Appointment.status.in_(["scheduled", "confirmed", "checked_in"])
     )) or 0)
-    posted_revenue = Decimal(str(db.scalar(select(func.coalesce(func.sum(__import__("app.models", fromlist=["Payment"]).Payment.amount), 0)).where(
-        __import__("app.models", fromlist=["Payment"]).Payment.status == "posted"
+    posted_revenue = Decimal(str(db.scalar(select(func.coalesce(func.sum(Payment.amount), 0)).where(
+        Payment.status == "posted"
     )) or 0))
-    open_bills = int(db.scalar(select(func.count()).select_from(__import__("app.models", fromlist=["Bill"]).Bill).where(
-        __import__("app.models", fromlist=["Bill"]).Bill.status.in_(["open", "partially_paid"])
+    open_bills = int(db.scalar(select(func.count(Bill.id)).where(
+        Bill.status.in_(["open", "partially_paid"])
     )) or 0)
     low_stock_count = int(db.scalar(select(func.count(InventoryItem.id)).where(
         InventoryItem.is_active.is_(True), InventoryItem.quantity_on_hand <= InventoryItem.reorder_level
