@@ -8,7 +8,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
-    Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text,
+    Boolean, CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text,
     UniqueConstraint, func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -517,6 +517,11 @@ class ProcurementRequest(Base, TimestampMixin):
 
 class ProcurementItem(Base):
     __tablename__ = "procurement_items"
+    __table_args__ = (
+        UniqueConstraint("request_id", "inventory_item_id", name="uq_procurement_items_request_item"),
+        CheckConstraint("requested_quantity > 0", name="ck_procurement_items_requested_positive"),
+        CheckConstraint("received_quantity >= 0 AND received_quantity <= requested_quantity", name="ck_procurement_items_received_range"),
+    )
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     request_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("procurement_requests.id", ondelete="RESTRICT"), index=True)
     inventory_item_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("inventory_items.id", ondelete="RESTRICT"))
