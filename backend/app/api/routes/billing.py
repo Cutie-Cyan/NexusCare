@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_profile, get_profile_roles, require_roles
 from app.db.session import get_db
+from app.core.notifications import notify_roles
 from app.models import (
     AuditLog, Bill, BillItem, Encounter, Patient, Payment, PaymentAllocation,
     Profile, Receipt, ServiceCatalog,
@@ -237,6 +238,9 @@ def receive_payment(
             "bill_id": str(bill.id), "amount": str(payment.amount),
             "receipt_number": receipt_number, "idempotency_key": key,
         })
+        notify_roles(db, {"administrator", "information_officer"}, "Payment recorded",
+                     "A payment was posted and the bill balance was recalculated.",
+                     "billing", exclude_profile_id=profile.id)
         db.commit()
         db.refresh(payment)
         return payment
@@ -330,6 +334,9 @@ def reverse_payment(
             "bill_id": str(payment.bill_id), "amount": str(payment.amount),
             "reason": payload.reason,
         })
+        notify_roles(db, {"cashier"}, "Payment reversed",
+                     "A posted payment was reversed by an administrator; review the updated bill balance.",
+                     "billing")
         db.commit()
         db.refresh(payment)
         return payment
