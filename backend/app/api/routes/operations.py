@@ -388,12 +388,22 @@ def list_appointments(
 @router.post("/appointments", response_model=AppointmentRead, status_code=status.HTTP_201_CREATED)
 def create_appointment(
     payload: AppointmentCreate,
-    profile: Profile = Depends(require_roles(*APPOINTMENT_CREATE_ROLES)),
+    profile: Profile = Depends(get_current_profile),
     db: Session = Depends(get_db),
 ) -> Appointment:
     if payload.scheduled_at <= datetime.now(timezone.utc):
         raise HTTPException(status_code=422, detail="Appointment must be scheduled in the future.")
-    patient = db.scalar(select(Patient).where(Patient.id == payload.patient_id, Patient.is_active.is_(True)))
+    roles = _roles(profile, db)
+    if "patient" in roles and not roles.intersection(APPOINTMENT_READ_ROLES):
+        own_patient_id = db.scalar(select(Patient.id).where(Patient.patient_profile_id == profile.id))
+        if own_patient_id is None:
+            raise HTTPException(status_code=403, detail="Your account is not linked to a patient record.")
+        patient_id = own_patient_id
+    elif roles.intersection(set(APPOINTMENT_CREATE_ROLES)):
+        patient_id = payload.patient_id
+    else:
+        raise HTTPException(status_code=403, detail="Insufficient permissions.")
+    patient = db.scalar(select(Patient).where(Patient.id == patient_id, Patient.is_active.is_(True)))
     if patient is None:
         raise HTTPException(status_code=404, detail="Active patient not found.")
     if payload.department_id and db.scalar(select(Department.id).where(
@@ -413,7 +423,11 @@ def create_appointment(
         ).limit(1))
         if conflict:
             raise HTTPException(status_code=409, detail="Clinician already has an appointment at this exact time.")
-    appointment = Appointment(**payload.model_dump(), created_by=profile.id, status="scheduled")
+    appointment = Appointment(
+        patient_id=patient.id, department_id=payload.department_id,
+        clinician_id=payload.clinician_id, scheduled_at=payload.scheduled_at,
+        reason=payload.reason, created_by=profile.id, status="scheduled",
+    )
     db.add(appointment)
     db.flush()
     _audit(db, profile, "appointment.created", "appointment", appointment.id, {
@@ -433,14 +447,23 @@ def create_appointment(
 def update_appointment_status(
     appointment_id: UUID,
     payload: AppointmentStatusUpdate,
-    profile: Profile = Depends(require_roles("administrator", "information_officer", "doctor", "nurse")),
+    profile: Profile = Depends(get_current_profile),
     db: Session = Depends(get_db),
 ) -> Appointment:
+    roles = _roles(profile, db)
     appointment = db.scalar(select(Appointment).where(
         Appointment.id == appointment_id
     ).with_for_update())
     if appointment is None:
         raise HTTPException(status_code=404, detail="Appointment not found.")
+    if "patient" in roles and not roles.intersection(APPOINTMENT_READ_ROLES):
+        own_patient_id = db.scalar(select(Patient.id).where(Patient.patient_profile_id == profile.id))
+        if own_patient_id != appointment.patient_id:
+            raise HTTPException(status_code=404, detail="Appointment not found.")
+        if payload.status != "cancelled":
+            raise HTTPException(status_code=403, detail="Patients may only cancel their own appointment requests.")
+    elif not roles.intersection(set(APPOINTMENT_CREATE_ROLES)):
+        raise HTTPException(status_code=403, detail="Insufficient permissions.")
     if appointment.status in {"completed", "cancelled", "no_show"}:
         raise HTTPException(status_code=409, detail="Closed appointment status cannot be changed.")
     appointment.status = payload.status
