@@ -1,11 +1,11 @@
 export const ROLE_PATHS = {
   administrator: '*',
-  information_officer: ['/', '/patients', '/registration', '/admissions', '/emergency', '/wards', '/appointments', '/reports'],
-  doctor: ['/', '/patients', '/admissions', '/emergency', '/wards', '/consultations', '/laboratory', '/prescriptions', '/appointments', '/online-consultation'],
-  nurse: ['/', '/patients', '/admissions', '/emergency', '/wards', '/nursing', '/laboratory', '/appointments'],
+  information_officer: ['/', '/patients', '/registration', '/admissions', '/emergency', '/wards', '/appointments', '/reports', '/whiteboard'],
+  doctor: ['/', '/patients', '/admissions', '/emergency', '/wards', '/consultations', '/laboratory', '/prescriptions', '/appointments', '/online-consultation', '/whiteboard'],
+  nurse: ['/', '/patients', '/admissions', '/emergency', '/wards', '/nursing', '/laboratory', '/appointments', '/whiteboard'],
   cashier: ['/', '/patients', '/laboratory', '/billing', '/payments', '/receipts', '/reports'],
-  laboratory_staff: ['/', '/laboratory'],
-  pharmacy_staff: ['/', '/prescriptions', '/pharmacy', '/inventory', '/procurement'],
+  laboratory_staff: ['/', '/laboratory', '/whiteboard'],
+  pharmacy_staff: ['/', '/prescriptions', '/pharmacy', '/inventory', '/procurement', '/whiteboard'],
   patient: ['/', '/patients', '/appointments', '/online-consultation', '/billing', '/receipts'],
 }
 
