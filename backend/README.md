@@ -45,7 +45,7 @@ API docs: http://127.0.0.1:8000/docs
 - **Notifications/settings/reports:** workflow-generated role notifications, per-profile unread/read status, privacy-conscious whiteboard summary, administrator-only system settings, and role-restricted operational reports.
 - **Health:** `GET /api/v1/health` reports API process health only, not database or auth connectivity.
 
-The complete interactive endpoint reference is available at `/docs` when the API is running.
+The complete interactive endpoint reference is available at `/docs` when the API is running. The frontend has dedicated workflow forms for most modules, a patient history view, an operational whiteboard, and administrator views for reports, audit logs, and system settings.
 
 ## Database migration and seed
 The initial schema is defined in `alembic/versions/20261010_0001_initial_schema.py`. The connected NexusCare Supabase project has already received this schema through the Supabase migration integration. **Do not run `alembic upgrade head` against that already-migrated project until its Alembic version baseline has been reconciled**; doing so may attempt to recreate existing tables. For new environments, review the migration and setup guide before applying it.
@@ -56,7 +56,7 @@ The seed is idempotent and uses fictional data. From `backend/`, run it only aft
 uv run python scripts/seed_demo.py
 ```
 
-It creates reference data, 20 fictional patients, 15 fictional beds across two wards, and catalog items. Do not use real patient data. Optional Auth user seeding creates five fictional doctor accounts and requires server-only secrets; never use demo credentials in production.
+It creates reference data, 20 fictional patients, 30 fictional beds across five wards, catalog items, two fictional suppliers, and three fictional inventory items. Do not use real patient data. Optional Auth user seeding creates five fictional doctor accounts and requires server-only secrets; never use demo credentials in production.
 
 ## Security and limitations
 All protected endpoints require a valid Supabase bearer access token and an active NexusCare profile. Role checks are enforced by FastAPI; the direct SQLAlchemy connection does not automatically inherit the signed-in user's Supabase RLS permissions. Review `docs/security-review.md` before exposing or deploying the system.
