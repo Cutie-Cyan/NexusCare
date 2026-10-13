@@ -189,7 +189,7 @@ def update_laboratory_order_status(
         raise HTTPException(status_code=409, detail="This laboratory order is already closed.")
     if payload.status == "collected" and order.status != "ordered":
         raise HTTPException(status_code=409, detail="Only ordered tests can be marked collected.")
-    if payload.status in {"collected", "in_progress"}:
+    if payload.status in {"collected", "in_progress", "completed"}:
         lab_test = db.scalar(select(LaboratoryTest).where(LaboratoryTest.id == order.test_id))
         if lab_test and lab_test.base_fee > 0:
             charge_description = f"Lab order {order.id}: {lab_test.name}"
