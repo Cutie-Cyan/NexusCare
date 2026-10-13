@@ -209,6 +209,12 @@ def update_laboratory_order_status(
                 raise HTTPException(status_code=409, detail="Laboratory processing requires payment for this test or an authorized billing arrangement.")
     if payload.status == "in_progress" and order.status not in {"ordered", "collected"}:
         raise HTTPException(status_code=409, detail="Only ordered or collected tests can be started.")
+    if payload.status == "completed":
+        verified_result = db.scalar(select(LaboratoryResult.id).where(
+            LaboratoryResult.order_id == order.id, LaboratoryResult.status == "verified"
+        ))
+        if verified_result is None:
+            raise HTTPException(status_code=409, detail="A laboratory order can only be completed after an independent result verification.")
     if payload.status == "cancelled":
         existing_result = db.scalar(select(LaboratoryResult.id).where(
             LaboratoryResult.order_id == order.id
