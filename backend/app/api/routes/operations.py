@@ -18,7 +18,7 @@ from app.models import (
     ProcurementRequest, ReceivingRecord, Supplier, SystemSetting,
 )
 from app.schemas.operations import (
-    AppointmentCreate, AppointmentRead, AppointmentStatusUpdate,
+    AppointmentCreate, AppointmentRead, AppointmentStatusUpdate, DepartmentCreate, DepartmentRead,
     DoctorScheduleCreate, DoctorScheduleRead, ProcurementItemInput, ProcurementItemRead,
     ProcurementRequestCreate, ProcurementRequestRead, ReceivingRecordCreate, ReceivingRecordRead,
     InventoryItemCreate, InventoryItemRead, InventoryItemTransactionRead,
@@ -42,6 +42,25 @@ def _audit(db: Session, profile: Profile, action: str, kind: str, resource_id: U
 
 def _roles(profile: Profile, db: Session) -> set[str]:
     return set(get_profile_roles(profile.id, db))
+
+
+@router.post("/departments", response_model=DepartmentRead, status_code=status.HTTP_201_CREATED, summary="Create a hospital department")
+def create_department(
+    payload: DepartmentCreate,
+    profile: Profile = Depends(require_roles("administrator")),
+    db: Session = Depends(get_db),
+) -> Department:
+    department = Department(**payload.model_dump(), is_active=True)
+    db.add(department)
+    try:
+        db.flush()
+        _audit(db, profile, "department.created", "department", department.id, {"code": department.code})
+        db.commit()
+        db.refresh(department)
+        return department
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="A department with that code or name already exists.") from exc
 
 
 @router.get("/departments", summary="List active hospital departments")
