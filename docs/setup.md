@@ -121,7 +121,7 @@ Optional: create five fictional doctor accounts only if you intentionally want t
 - Phase 9: bills, service-fee administration, automatic lab/professional/pharmacy charges, idempotent payments, receipts, and audited reversals.
 - Phase 10: inventory/suppliers, procurement approvals and receiving, appointments/online consultations, notifications, whiteboard summary, settings, and reports.
 - Phase 11: administrator audit search, staff provisioning/role management, billing-aware discharge exceptions, and documented RLS/RBAC review.
-- Phase 12: Supabase sign-in, role-aware navigation, authenticated API client, live dashboard, patient registration/history, notification center, and read-only API tables. Dedicated write/action screens for most non-patient modules remain unfinished.
+- Phase 12: Supabase sign-in, role-aware navigation, authenticated API client, live dashboards and notifications, plus forms for patient history, admissions, clinical notes/vitals, emergency triage, laboratory results, pharmacy/dispensing, inventory, procurement, appointments, billing/payments, service fees, and staff provisioning. Departments, reports, receipts, audit logs, and settings currently have read-only API views.
 
 ## Security note
 Direct SQLAlchemy access does not automatically enforce Supabase RLS based on the signed-in user. FastAPI role checks currently protect these routes, but staff access must be tightened to department/encounter-specific scopes before production. See `docs/security-review.md`. Do not use real patient data.
