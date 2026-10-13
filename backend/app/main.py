@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.admin import router as admin_router
+from app.api.routes.admissions import router as admissions_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.health import router as health_router
 from app.api.routes.patients import router as patients_router
@@ -10,8 +11,8 @@ from app.core.config import get_settings
 settings = get_settings()
 app = FastAPI(
     title=settings.app_name,
-    description="NexusCare API. Phase 3 adds role-checked patient registration, search, updates, and deactivation.",
-    version="0.3.0",
+    description="NexusCare API. Includes patient records and role-checked admissions and bed management.",
+    version="0.4.0",
 )
 app.add_middleware(
     CORSMiddleware,
@@ -24,6 +25,7 @@ app.include_router(health_router, prefix=settings.api_v1_prefix)
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
 app.include_router(admin_router, prefix=settings.api_v1_prefix)
 app.include_router(patients_router, prefix=settings.api_v1_prefix)
+app.include_router(admissions_router, prefix=settings.api_v1_prefix)
 
 
 @app.get("/", tags=["root"], include_in_schema=False)
