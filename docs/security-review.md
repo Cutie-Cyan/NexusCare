@@ -15,7 +15,7 @@
 - Browser configuration uses only Supabase URL/publishable key; server secrets and the Postgres connection string belong in backend-only environment variables.
 
 ## Supabase RLS status and architecture
-The connected Supabase project has RLS enabled on all 40 application tables. The initial migration defines a small set of explicit policies; many tables intentionally have no table-specific policy and therefore remain inaccessible through the Supabase Data API by default.
+The connected Supabase project has RLS enabled on all 43 application tables. The initial migration defines a small set of explicit policies; many tables intentionally have no table-specific policy and therefore remain inaccessible through the Supabase Data API by default.
 
 The FastAPI backend connects to Postgres using its own database credentials. SQLAlchemy queries through that connection do **not** automatically inherit the signed-in user's Supabase RLS identity. Therefore:
 1. Use Supabase Auth from the browser, then call FastAPI with the access token.
@@ -25,6 +25,9 @@ The FastAPI backend connects to Postgres using its own database credentials. SQL
 
 ## Known gaps before any real-world use
 - Some clinical and operational staff endpoints still have broad role-level access rather than assignment-, department-, encounter-, or care-team-specific scope.
+- The frontend has read-only data tables for most modules; most write workflows still require the API documentation until dedicated forms are completed.
+- Staff provisioning is administrator-only and requires the server-only Supabase secret key. A first administrator must be bootstrapped manually before that endpoint can be used.
+- The procurement extension adds three RLS-enabled tables with no browser Data API policies; this is default-deny and intentional.
 - Appointment overlap checks currently prevent exact same-time clinician duplicates but do not model appointment duration or complete schedule availability.
 - Not every endpoint has full integration tests for role denial, patient ownership, concurrent writes, and database failure paths.
 - The audit log is queryable by administrators, but log retention, tamper resistance, alerting, and access monitoring need operational design.
