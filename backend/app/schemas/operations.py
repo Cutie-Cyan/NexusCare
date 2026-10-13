@@ -199,7 +199,7 @@ class DoctorScheduleRead(BaseModel):
 
 
 class AppointmentCreate(BaseModel):
-    patient_id: UUID
+    patient_id: UUID | None = None
     department_id: UUID | None = None
     clinician_id: UUID | None = None
     scheduled_at: datetime
