@@ -19,8 +19,8 @@ from supabase import create_client
 from app.core.config import get_settings
 from app.db.session import get_engine
 from app.models import (
-    Bed, Department, LaboratoryTest, Medicine, Patient, Profile, Role,
-    ServiceCatalog, UserRole, Ward,
+    Bed, Department, InventoryItem, InventoryItemTransaction, LaboratoryTest,
+    Medicine, Patient, Profile, Role, ServiceCatalog, Supplier, UserRole, Ward,
 )
 
 ROLES = [
@@ -36,7 +36,7 @@ ROLES = [
 DEPARTMENTS = [
     ("ER", "Emergency Room"), ("GEN", "General Medicine"), ("PED", "Pediatrics"),
     ("LAB", "Laboratory"), ("PHARM", "Pharmacy"), ("NURS", "Nursing"),
-    ("CASH", "Cashier"), ("ADMIN", "Administration"),
+    ("CASH", "Cashier"), ("ADMIN", "Administration"), ("OBGYN", "Obstetrics & Delivery"),
 ]
 PATIENT_NAMES = [
     ("Ava", "Santos"), ("Noah", "Reyes"), ("Mia", "Cruz"), ("Liam", "Garcia"),
@@ -74,6 +74,9 @@ def seed_reference_data(session: Session) -> dict[str, Department]:
     for ward_code, ward_name, ward_type, department_code, bed_count in [
         ("GEN-WARD", "General Ward", "inpatient", "NURS", 10),
         ("ER-WARD", "Emergency Observation", "observation", "ER", 5),
+        ("PED-WARD", "Pediatric Ward", "pediatric", "PED", 5),
+        ("FEMALE-WARD", "Female Ward", "inpatient", "NURS", 5),
+        ("DELIVERY", "Delivery Room", "maternity", "OBGYN", 5),
     ]:
         ward = session.scalar(select(Ward).where(Ward.code == ward_code))
         if ward is None:
@@ -116,6 +119,46 @@ def seed_reference_data(session: Session) -> dict[str, Department]:
     ]:
         if session.scalar(select(Medicine).where(Medicine.code == code)) is None:
             session.add(Medicine(code=code, name=name, strength=strength, dosage_form=form))
+
+
+    suppliers = {}
+    for code, name in [
+        ("SUP-MED", "Fictional Medical Supply Co."),
+        ("SUP-GEN", "Fictional General Hospital Supplies"),
+    ]:
+        supplier = session.scalar(select(Supplier).where(Supplier.code == code))
+        if supplier is None:
+            supplier = Supplier(code=code, name=name, is_active=True)
+            session.add(supplier)
+            session.flush()
+        suppliers[code] = supplier
+
+    for code, name, category, unit, reorder_level, unit_cost, supplier_code, opening_qty in [
+        ("SUP-GLOVE", "Examination Gloves", "medical_supply", "box", "10.000", "120.00", "SUP-MED", "30.000"),
+        ("SUP-MASK", "Surgical Masks", "medical_supply", "box", "8.000", "75.00", "SUP-MED", "25.000"),
+        ("SUP-SHEET", "Patient Bed Sheets", "linen", "piece", "5.000", "180.00", "SUP-GEN", "15.000"),
+    ]:
+        item = session.scalar(select(InventoryItem).where(InventoryItem.code == code))
+        if item is None:
+            item = InventoryItem(
+                code=code, name=name, category=category, unit=unit,
+                quantity_on_hand=Decimal("0"), reorder_level=Decimal(reorder_level),
+                unit_cost=Decimal(unit_cost), supplier_id=suppliers[supplier_code].id,
+                is_active=True,
+            )
+            session.add(item)
+            session.flush()
+        opening_record = session.scalar(select(InventoryItemTransaction.id).where(
+            InventoryItemTransaction.item_id == item.id,
+            InventoryItemTransaction.notes == "Fictional seed opening stock",
+        ))
+        if opening_record is None:
+            quantity = Decimal(opening_qty)
+            item.quantity_on_hand += quantity
+            session.add(InventoryItemTransaction(
+                item_id=item.id, quantity_delta=quantity, transaction_type="receipt",
+                notes="Fictional seed opening stock",
+            ))
 
     for index, (first, last) in enumerate(PATIENT_NAMES, start=1):
         mrn = f"DEMO-{index:05d}"
