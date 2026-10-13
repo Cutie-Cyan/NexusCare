@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from app.schemas.billing import BillCreate, BillItemInput, PaymentCreate, PaymentReversal
 from app.schemas.operations import (
     AppointmentCreate, InventoryMovementCreate, ProcurementRequestCreate,
-    ProcurementItemInput, SystemSettingWrite,
+    ProcurementItemInput, SystemSettingWrite, DepartmentCreate,
 )
 from app.schemas.admin import StaffCreate, StaffRolesUpdate
 from app.schemas.billing import ServiceCatalogCreate
@@ -122,3 +122,11 @@ def test_staff_provisioning_requires_strong_initial_password_and_roles():
         StaffCreate(email="staff@example.test", full_name="Fictional Staff", initial_password="short", role_codes=["doctor"])
     with pytest.raises(ValidationError):
         StaffRolesUpdate(role_codes=["doctor", "doctor"])
+
+def test_department_code_and_name_are_normalized():
+    department = DepartmentCreate(code=" cardio ", name=" Cardiology ", description="  Heart care  ")
+    assert department.code == "CARDIO"
+    assert department.name == "Cardiology"
+    assert department.description == "Heart care"
+    with pytest.raises(ValidationError):
+        DepartmentCreate(code="  ", name="Cardiology")
