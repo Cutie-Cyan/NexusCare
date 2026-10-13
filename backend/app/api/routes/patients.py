@@ -121,15 +121,31 @@ def get_patient_history(
     patient = db.scalar(select(Patient).where(Patient.id == patient_id, Patient.is_active.is_(True)))
     if patient is None:
         raise HTTPException(status_code=404, detail="Patient not found.")
-    if role_codes == {"patient"} or ("patient" in role_codes and not role_codes.intersection(PATIENT_STAFF_READ_ROLES)):
+    is_patient_self = (
+        "patient" in role_codes
+        and not role_codes.intersection(PATIENT_STAFF_READ_ROLES)
+    )
+    is_administrator = "administrator" in role_codes
+    if is_patient_self:
         if patient.patient_profile_id != profile.id:
             raise HTTPException(status_code=404, detail="Patient not found.")
-    elif not role_codes.intersection(PATIENT_STAFF_READ_ROLES):
-        raise HTTPException(status_code=403, detail="Insufficient permissions.")
+    elif not (is_administrator or role_codes.intersection({"doctor", "nurse"})):
+        # Reception, cashier, laboratory, and pharmacy roles must not receive a
+        # complete clinical history through this endpoint.
+        raise HTTPException(status_code=403, detail="Clinical history access is not permitted for this role.")
 
-    encounters = db.scalars(select(Encounter).where(
-        Encounter.patient_id == patient.id
-    ).order_by(Encounter.started_at.desc())).all()
+    encounter_statement = select(Encounter).where(Encounter.patient_id == patient.id)
+    if not (is_patient_self or is_administrator):
+        from sqlalchemy import or_
+        scope_conditions = [Encounter.clinician_id == profile.id]
+        if profile.department_id is not None:
+            scope_conditions.append(Encounter.department_id == profile.department_id)
+        encounter_statement = encounter_statement.where(or_(*scope_conditions))
+    encounters = db.scalars(
+        encounter_statement.order_by(Encounter.started_at.desc())
+    ).all()
+    if not (is_patient_self or is_administrator) and not encounters:
+        raise HTTPException(status_code=404, detail="Patient history not found for your assigned care scope.")
     encounter_ids = [row.id for row in encounters]
     diagnoses = db.scalars(select(Diagnosis).where(
         Diagnosis.encounter_id.in_(encounter_ids)
@@ -150,12 +166,25 @@ def get_patient_history(
     prescription_items = db.scalars(select(PrescriptionItem).where(
         PrescriptionItem.prescription_id.in_(prescription_ids)
     )).all() if prescription_ids else []
-    admissions = db.scalars(select(Admission).where(
-        Admission.patient_id == patient.id
-    ).order_by(Admission.admitted_at.desc())).all()
-    appointments = db.scalars(select(Appointment).where(
-        Appointment.patient_id == patient.id
-    ).order_by(Appointment.scheduled_at.desc()).limit(100)).all()
+    admission_statement = select(Admission).where(Admission.patient_id == patient.id)
+    appointment_statement = select(Appointment).where(Appointment.patient_id == patient.id)
+    if not (is_patient_self or is_administrator):
+        encounter_admission_ids = [row.admission_id for row in encounters if row.admission_id]
+        from sqlalchemy import or_
+        admission_conditions = [Admission.attending_doctor_id == profile.id]
+        if encounter_admission_ids:
+            admission_conditions.append(Admission.id.in_(encounter_admission_ids))
+        admission_statement = admission_statement.where(or_(*admission_conditions))
+        appointment_conditions = [Appointment.clinician_id == profile.id]
+        if profile.department_id is not None:
+            appointment_conditions.append(Appointment.department_id == profile.department_id)
+        appointment_statement = appointment_statement.where(or_(*appointment_conditions))
+    admissions = db.scalars(
+        admission_statement.order_by(Admission.admitted_at.desc())
+    ).all()
+    appointments = db.scalars(
+        appointment_statement.order_by(Appointment.scheduled_at.desc()).limit(100)
+    ).all()
 
     result = {
         "patient": PatientRead.model_validate(patient).model_dump(mode="json"),
