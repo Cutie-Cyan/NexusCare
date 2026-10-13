@@ -19,8 +19,8 @@ from supabase import create_client
 from app.core.config import get_settings
 from app.db.session import get_engine
 from app.models import (
-    Department, LaboratoryTest, Medicine, Patient, Profile, Role,
-    ServiceCatalog, UserRole,
+    Bed, Department, LaboratoryTest, Medicine, Patient, Profile, Role,
+    ServiceCatalog, UserRole, Ward,
 )
 
 ROLES = [
@@ -69,6 +69,28 @@ def seed_reference_data(session: Session) -> dict[str, Department]:
             session.add(department)
             session.flush()
         department_map[code] = department
+
+    # Fictional ward and bed capacity for local development. Seed is idempotent.
+    for ward_code, ward_name, ward_type, department_code, bed_count in [
+        ("GEN-WARD", "General Ward", "inpatient", "NURS", 10),
+        ("ER-WARD", "Emergency Observation", "observation", "ER", 5),
+    ]:
+        ward = session.scalar(select(Ward).where(Ward.code == ward_code))
+        if ward is None:
+            ward = Ward(
+                code=ward_code,
+                name=ward_name,
+                ward_type=ward_type,
+                department_id=department_map[department_code].id,
+            )
+            session.add(ward)
+            session.flush()
+        for bed_number in range(1, bed_count + 1):
+            number = f"{bed_number:02d}"
+            if session.scalar(select(Bed.id).where(
+                Bed.ward_id == ward.id, Bed.bed_number == number
+            )) is None:
+                session.add(Bed(ward_id=ward.id, bed_number=number, status="available"))
 
     for code, name, category, price in [
         ("CONSULT", "General Consultation", "professional_fee", "500.00"),
