@@ -95,6 +95,13 @@ class AppointmentCreate(BaseModel):
     scheduled_at: datetime
     reason: str | None = Field(default=None, max_length=3000)
 
+    @field_validator("scheduled_at")
+    @classmethod
+    def require_timezone(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("Appointment datetime must include a timezone.")
+        return value
+
 
 class AppointmentStatusUpdate(BaseModel):
     status: Literal["scheduled", "confirmed", "checked_in", "completed", "cancelled", "no_show"]
