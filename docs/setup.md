@@ -46,16 +46,14 @@ uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 - API docs: http://127.0.0.1:8000/docs
 
 ## Database migration
-Review `backend/alembic/versions/20261010_0001_initial_schema.py` and verify the target project before running the migration. This creates the initial tables and RLS policies. Do not run against a production database without backup/review.
+The initial schema in `backend/alembic/versions/20261010_0001_initial_schema.py` has already been applied to the connected NexusCare Supabase project through the Supabase migration integration. The migration appears in Supabase migration history and the expected 40 public tables exist with RLS enabled.
 
-From `backend/`:
-```bash
-uv run alembic upgrade head
-uv run alembic current
-```
+**Important:** do not run `uv run alembic upgrade head` against that existing project yet. The schema was applied through Supabase's migration tool, and the local Alembic version table has not been reconciled; running Alembic may attempt to create tables that already exist. We will establish a safe baseline before using Alembic for future schema changes.
+
+For a fresh development database, review the migration and target project carefully before applying it. Do not run schema changes against production without a backup and review.
 
 ## Fictional demo data
-After migration:
+After the database connection is configured and the migration baseline is confirmed, the seed command is:
 ```bash
 uv run python scripts/seed_demo.py
 ```
@@ -70,6 +68,7 @@ Optional: create five fictional doctor accounts only if you intentionally want t
 - Phase 4: ward/bed management, admission, bed transfer, discharge, audit logging.
 - Phase 5: emergency-event registration/triage, clinical encounters, vital-sign observations, diagnoses, role checks, and audit events.
 - Phase 6: doctor-authored consultation notes and nurse-authored nursing notes, with immutable entries, role checks, and audit events.
-- Not yet implemented: laboratory, pharmacy, billing, inventory, appointments, notifications UI, analytics, and frontend integration.
+- Phase 7: laboratory catalog, test orders, specimen/processing status, result entry, independent verification/release, role checks, and audit events.
+- Not yet implemented: pharmacy, billing, inventory, appointments, notifications UI, analytics, and frontend integration.
 
 **Security note:** direct SQLAlchemy access does not automatically enforce Supabase RLS based on the signed-in user. FastAPI role checks currently protect these routes, but staff access must be tightened to department/encounter-specific scopes before production. Do not use real patient data.
