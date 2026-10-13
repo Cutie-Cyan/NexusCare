@@ -11,7 +11,7 @@ from app.core.config import get_settings
 settings = get_settings()
 app = FastAPI(
     title=settings.app_name,
-    description="NexusCare API. Includes patient records and role-checked admissions and bed management.",
+    description="NexusCare hospital information and resource management REST API.",
     version="0.4.0",
 )
 app.add_middleware(
