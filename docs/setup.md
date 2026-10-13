@@ -21,7 +21,7 @@ git switch develop
 ```bash
 cd frontend
 bun install
-cp .env.example .env
+cp .env.example .env.local
 bun run dev
 ```
 Open the URL printed by Vite, normally http://localhost:5173.
