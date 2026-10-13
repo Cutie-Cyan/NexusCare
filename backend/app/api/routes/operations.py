@@ -9,14 +9,17 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_profile, get_profile_roles, require_roles
 from app.db.session import get_db
+from app.core.notifications import notify_roles
 from app.models import (
-    Admission, Appointment, AuditLog, Bill, Department, DoctorSchedule, InventoryItem,
-    InventoryItemTransaction, Notification, OnlineConsultation, Patient, Payment,
-    Profile, Supplier, SystemSetting,
+    Admission, Appointment, AuditLog, Bed, Bill, Department, DoctorSchedule,
+    EmergencyEvent, InventoryItem, InventoryItemTransaction, LaboratoryOrder,
+    Notification, OnlineConsultation, Patient, Payment, Profile, ProcurementItem,
+    ProcurementRequest, ReceivingRecord, Supplier, SystemSetting,
 )
 from app.schemas.operations import (
     AppointmentCreate, AppointmentRead, AppointmentStatusUpdate,
-    DoctorScheduleCreate, DoctorScheduleRead,
+    DoctorScheduleCreate, DoctorScheduleRead, ProcurementItemInput, ProcurementItemRead,
+    ProcurementRequestCreate, ProcurementRequestRead, ReceivingRecordCreate, ReceivingRecordRead,
     InventoryItemCreate, InventoryItemRead, InventoryItemTransactionRead,
     InventoryMovementCreate, NotificationCreate, NotificationRead,
     OnlineConsultationCreate, OnlineConsultationRead, SupplierCreate,
@@ -161,6 +164,190 @@ def list_inventory_movements(
     return list(db.scalars(select(InventoryItemTransaction).where(
         InventoryItemTransaction.item_id == item_id
     ).order_by(InventoryItemTransaction.created_at.desc()).limit(limit)).all())
+
+
+
+@router.get("/procurement/requests", response_model=list[ProcurementRequestRead])
+def list_procurement_requests(
+    request_status: str | None = Query(default=None, alias="status", max_length=30),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    profile: Profile = Depends(require_roles("administrator", "pharmacy_staff")),
+    db: Session = Depends(get_db),
+) -> list[ProcurementRequest]:
+    statement = select(ProcurementRequest)
+    if request_status:
+        if request_status not in {"submitted", "approved", "partially_received", "received", "cancelled", "rejected"}:
+            raise HTTPException(status_code=422, detail="Unsupported procurement status.")
+        statement = statement.where(ProcurementRequest.status == request_status)
+    return list(db.scalars(statement.order_by(ProcurementRequest.created_at.desc()).offset(offset).limit(limit)).all())
+
+
+@router.post("/procurement/requests", response_model=ProcurementRequestRead, status_code=status.HTTP_201_CREATED)
+def create_procurement_request(
+    payload: ProcurementRequestCreate,
+    profile: Profile = Depends(require_roles("administrator", "pharmacy_staff")),
+    db: Session = Depends(get_db),
+) -> ProcurementRequest:
+    if payload.supplier_id and db.scalar(select(Supplier.id).where(
+        Supplier.id == payload.supplier_id, Supplier.is_active.is_(True)
+    )) is None:
+        raise HTTPException(status_code=422, detail="Active supplier not found.")
+    item_ids = {item.inventory_item_id for item in payload.items}
+    active_items = db.scalars(select(InventoryItem.id).where(
+        InventoryItem.id.in_(item_ids), InventoryItem.is_active.is_(True)
+    )).all()
+    if len(active_items) != len(item_ids):
+        raise HTTPException(status_code=422, detail="Every requested inventory item must be active.")
+    request = ProcurementRequest(
+        request_number=payload.request_number, supplier_id=payload.supplier_id,
+        requested_by=profile.id, status="submitted", notes=payload.notes,
+    )
+    db.add(request)
+    try:
+        db.flush()
+        for item in payload.items:
+            db.add(ProcurementItem(
+                request_id=request.id, inventory_item_id=item.inventory_item_id,
+                requested_quantity=item.requested_quantity, received_quantity=Decimal("0"),
+                unit_cost=item.unit_cost, notes=item.notes,
+            ))
+        _audit(db, profile, "procurement_request.submitted", "procurement_request", request.id, {
+            "request_number": request.request_number, "item_count": len(payload.items),
+        })
+        notify_roles(db, {"administrator"}, "Procurement request submitted",
+                     "A stock replenishment request is awaiting administrative review.",
+                     "procurement", exclude_profile_id=profile.id)
+        db.commit()
+        db.refresh(request)
+        return request
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Procurement request number already exists or request data conflicts.") from exc
+
+
+@router.get("/procurement/requests/{request_id}/items", response_model=list[ProcurementItemRead])
+def list_procurement_items(
+    request_id: UUID,
+    profile: Profile = Depends(require_roles("administrator", "pharmacy_staff")),
+    db: Session = Depends(get_db),
+) -> list[ProcurementItem]:
+    if db.scalar(select(ProcurementRequest.id).where(ProcurementRequest.id == request_id)) is None:
+        raise HTTPException(status_code=404, detail="Procurement request not found.")
+    return list(db.scalars(select(ProcurementItem).where(
+        ProcurementItem.request_id == request_id
+    ).order_by(ProcurementItem.id)).all())
+
+
+@router.post("/procurement/requests/{request_id}/approve", response_model=ProcurementRequestRead)
+def approve_procurement_request(
+    request_id: UUID,
+    profile: Profile = Depends(require_roles("administrator")),
+    db: Session = Depends(get_db),
+) -> ProcurementRequest:
+    request = db.scalar(select(ProcurementRequest).where(
+        ProcurementRequest.id == request_id
+    ).with_for_update())
+    if request is None:
+        raise HTTPException(status_code=404, detail="Procurement request not found.")
+    if request.status != "submitted":
+        raise HTTPException(status_code=409, detail="Only submitted procurement requests can be approved.")
+    request.status = "approved"
+    request.approved_by = profile.id
+    request.approved_at = datetime.now(timezone.utc)
+    _audit(db, profile, "procurement_request.approved", "procurement_request", request.id, {
+        "request_number": request.request_number,
+    })
+    notify_roles(db, {"pharmacy_staff"}, "Procurement request approved",
+                 "An approved replenishment request is ready for receiving.",
+                 "procurement", exclude_profile_id=profile.id)
+    db.commit()
+    db.refresh(request)
+    return request
+
+
+@router.post("/procurement/requests/{request_id}/items/{item_id}/receive", response_model=ReceivingRecordRead, status_code=status.HTTP_201_CREATED)
+def receive_procurement_item(
+    request_id: UUID,
+    item_id: UUID,
+    payload: ReceivingRecordCreate,
+    profile: Profile = Depends(require_roles("administrator", "pharmacy_staff")),
+    db: Session = Depends(get_db),
+) -> ReceivingRecord:
+    try:
+        request = db.scalar(select(ProcurementRequest).where(
+            ProcurementRequest.id == request_id
+        ).with_for_update())
+        if request is None:
+            raise HTTPException(status_code=404, detail="Procurement request not found.")
+        if request.status not in {"approved", "partially_received"}:
+            raise HTTPException(status_code=409, detail="Only approved procurement requests can receive stock.")
+        item = db.scalar(select(ProcurementItem).where(
+            ProcurementItem.id == item_id, ProcurementItem.request_id == request.id
+        ).with_for_update())
+        if item is None:
+            raise HTTPException(status_code=404, detail="Procurement item not found.")
+        remaining = item.requested_quantity - item.received_quantity
+        if payload.quantity_received > remaining:
+            raise HTTPException(status_code=409, detail=f"Received quantity exceeds remaining ordered quantity ({remaining}).")
+        stock_item = db.scalar(select(InventoryItem).where(
+            InventoryItem.id == item.inventory_item_id, InventoryItem.is_active.is_(True)
+        ).with_for_update())
+        if stock_item is None:
+            raise HTTPException(status_code=404, detail="Active inventory item not found.")
+        stock_item.quantity_on_hand += payload.quantity_received
+        item.received_quantity += payload.quantity_received
+        receiving = ReceivingRecord(
+            procurement_item_id=item.id, quantity_received=payload.quantity_received,
+            received_by=profile.id, supplier_reference=payload.supplier_reference,
+            notes=payload.notes,
+        )
+        db.add(receiving)
+        db.flush()
+        db.add(InventoryItemTransaction(
+            item_id=stock_item.id, quantity_delta=payload.quantity_received,
+            transaction_type="receipt", reference_id=receiving.id,
+            recorded_by=profile.id,
+            notes=payload.notes or f"Procurement receipt {request.request_number}",
+        ))
+        request_items = db.scalars(select(ProcurementItem).where(
+            ProcurementItem.request_id == request.id
+        )).all()
+        request.status = "received" if all(row.received_quantity >= row.requested_quantity for row in request_items) else "partially_received"
+        _audit(db, profile, "procurement_item.received", "receiving_record", receiving.id, {
+            "request_id": str(request.id), "inventory_item_id": str(stock_item.id),
+            "quantity_received": str(payload.quantity_received),
+            "new_stock_quantity": str(stock_item.quantity_on_hand),
+        })
+        notify_roles(db, {"administrator"}, "Inventory receipt recorded",
+                     "A procurement delivery was recorded and inventory quantities were updated.",
+                     "inventory", exclude_profile_id=profile.id)
+        db.commit()
+        db.refresh(receiving)
+        return receiving
+    except HTTPException:
+        db.rollback()
+        raise
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Receiving record conflicts with current procurement or inventory state.") from exc
+
+
+@router.get("/whiteboard", summary="View a privacy-conscious operational status board")
+def get_whiteboard_summary(
+    profile: Profile = Depends(require_roles("administrator", "information_officer", "doctor", "nurse", "laboratory_staff", "pharmacy_staff")),
+    db: Session = Depends(get_db),
+) -> dict:
+    return {
+        "active_admissions": int(db.scalar(select(func.count(Admission.id)).where(Admission.status == "admitted")) or 0),
+        "occupied_beds": int(db.scalar(select(func.count(Bed.id)).where(Bed.status == "occupied")) or 0),
+        "available_beds": int(db.scalar(select(func.count(Bed.id)).where(Bed.status == "available")) or 0),
+        "emergency_queue": int(db.scalar(select(func.count(EmergencyEvent.id)).where(EmergencyEvent.status.in_(["waiting", "in_treatment"]))) or 0),
+        "pending_laboratory_orders": int(db.scalar(select(func.count(LaboratoryOrder.id)).where(LaboratoryOrder.status.in_(["ordered", "collected", "in_progress"]))) or 0),
+        "low_stock_items": int(db.scalar(select(func.count(InventoryItem.id)).where(InventoryItem.is_active.is_(True), InventoryItem.quantity_on_hand <= InventoryItem.reorder_level)) or 0),
+        "active_appointments": int(db.scalar(select(func.count(Appointment.id)).where(Appointment.status.in_(["scheduled", "confirmed", "checked_in"]))) or 0),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 @router.get("/appointments", response_model=list[AppointmentRead])
