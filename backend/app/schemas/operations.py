@@ -95,6 +95,36 @@ class InventoryItemTransactionRead(BaseModel):
     created_at: datetime
 
 
+class DoctorScheduleCreate(BaseModel):
+    doctor_id: UUID
+    department_id: UUID | None = None
+    weekday: int = Field(ge=0, le=6)
+    start_time: str = Field(pattern=r"^(?:[01]\\d|2[0-3]):[0-5]\\d$")
+    end_time: str = Field(pattern=r"^(?:[01]\\d|2[0-3]):[0-5]\\d$")
+    is_active: bool = True
+
+    @field_validator("end_time")
+    @classmethod
+    def end_after_start(cls, value: str, info):
+        start = info.data.get("start_time")
+        if start and value <= start:
+            raise ValueError("Schedule end time must be after start time.")
+        return value
+
+
+class DoctorScheduleRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    doctor_id: UUID
+    department_id: UUID | None
+    weekday: int
+    start_time: str
+    end_time: str
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+
 class AppointmentCreate(BaseModel):
     patient_id: UUID
     department_id: UUID | None = None
