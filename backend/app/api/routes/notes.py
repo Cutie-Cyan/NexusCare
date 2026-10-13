@@ -6,8 +6,9 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_roles
 from app.db.session import get_db
+from app.core.billing import add_service_charge
 from app.core.notifications import notify_roles
-from app.models import AuditLog, ConsultationNote, Encounter, NursingNote, Profile
+from app.models import AuditLog, BillItem, ConsultationNote, Encounter, NursingNote, Profile, ServiceCatalog
 from app.schemas.notes import (
     ConsultationNoteCreate, ConsultationNoteRead, NursingNoteCreate, NursingNoteRead,
 )
@@ -78,6 +79,16 @@ def create_consultation_note(
     db.add(note)
     db.flush()
     _audit(db, profile, "consultation_note.created", "consultation_note", note.id, encounter.id)
+    fee = db.scalar(select(ServiceCatalog).where(
+        ServiceCatalog.category == "professional_fee", ServiceCatalog.is_active.is_(True)
+    ).order_by(ServiceCatalog.code).limit(1))
+    if fee is not None:
+        charge_description = f"Professional fee {fee.code} for encounter {encounter.id}"
+        existing_charge = db.scalar(select(BillItem.id).where(BillItem.description == charge_description))
+        if existing_charge is None:
+            add_service_charge(db, encounter.patient_id, encounter.id, charge_description, fee.price, service_id=fee.id)
+            notify_roles(db, {"cashier"}, "Professional fee added",
+                         "A consultation note added the configured professional fee to the encounter bill.", "billing")
     notify_roles(db, {"nurse"}, "Consultation note added",
                  "A doctor added a note to an encounter. Review only if assigned and authorized.",
                  "clinical", exclude_profile_id=profile.id)
