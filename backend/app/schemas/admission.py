@@ -82,8 +82,9 @@ class AdmissionCreate(BaseModel):
 
 class DischargeRequest(BaseModel):
     discharge_notes: str | None = Field(default=None, max_length=5000)
+    billing_exception_reason: str | None = Field(default=None, min_length=3, max_length=2000)
 
-    @field_validator("discharge_notes")
+    @field_validator("discharge_notes", "billing_exception_reason")
     @classmethod
     def normalize_notes(cls, value: str | None) -> str | None:
         return value.strip() or None if value is not None else None
