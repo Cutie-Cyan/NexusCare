@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
@@ -420,10 +421,10 @@ def create_appointment(
             raise HTTPException(status_code=422, detail="Clinician must be an active doctor.")
         schedule_rows = db.scalars(select(DoctorSchedule).where(
             DoctorSchedule.doctor_id == payload.clinician_id,
-            DoctorSchedule.weekday == payload.scheduled_at.weekday(),
+            DoctorSchedule.weekday == payload.scheduled_at.astimezone(ZoneInfo('Asia/Manila')).weekday(),
             DoctorSchedule.is_active.is_(True),
         )).all()
-        requested_time = payload.scheduled_at.strftime("%H:%M")
+        requested_time = payload.scheduled_at.astimezone(ZoneInfo("Asia/Manila")).strftime("%H:%M")
         if schedule_rows and not any(row.start_time <= requested_time < row.end_time for row in schedule_rows):
             raise HTTPException(status_code=422, detail="Requested time falls outside the clinician schedule.")
         conflict = db.scalar(select(Appointment.id).where(
