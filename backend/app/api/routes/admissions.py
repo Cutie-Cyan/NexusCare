@@ -1,15 +1,16 @@
 from datetime import datetime, timezone
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_profile, get_profile_roles, require_roles
 from app.db.session import get_db
 from app.core.notifications import notify_roles
-from app.models import Admission, AuditLog, Bed, Department, Patient, Profile, Ward, WardTransfer
+from app.models import Admission, AuditLog, Bed, Bill, Department, Patient, Payment, Profile, Ward, WardTransfer
 from app.schemas.admission import (
     AdmissionCreate, AdmissionRead, BedCreate, BedRead, BedTransferCreate,
     DischargeRequest, WardCreate, WardRead,
@@ -288,6 +289,21 @@ def discharge_patient(
         ).with_for_update())
         if admission is None:
             raise HTTPException(status_code=404, detail="Active admission not found.")
+        patient_bills = db.scalars(select(Bill).where(
+            Bill.patient_id == admission.patient_id,
+            Bill.status.in_(["open", "partially_paid"]),
+        ).with_for_update()).all()
+        outstanding = Decimal("0.00")
+        for bill in patient_bills:
+            paid = Decimal(str(db.scalar(select(func.coalesce(func.sum(Payment.amount), 0)).where(
+                Payment.bill_id == bill.id, Payment.status == "posted"
+            )) or 0))
+            outstanding += max(Decimal("0.00"), bill.total - paid)
+        if outstanding > 0:
+            if not payload.billing_exception_reason:
+                raise HTTPException(status_code=409, detail=f"Discharge requires settlement or an administrator-authorized billing exception. Outstanding balance: {outstanding}.")
+            if "administrator" not in get_profile_roles(profile.id, db):
+                raise HTTPException(status_code=403, detail="Only an administrator may authorize discharge with an outstanding balance.")
         if admission.bed_id:
             bed = db.scalar(select(Bed).where(Bed.id == admission.bed_id).with_for_update())
             if bed is not None:
@@ -298,6 +314,8 @@ def discharge_patient(
         _audit(db, profile, "admission.discharged", "admission", admission.id, {
             "patient_id": str(admission.patient_id),
             "bed_id": str(admission.bed_id) if admission.bed_id else None,
+            "outstanding_balance_at_discharge": str(outstanding),
+            "billing_exception_reason": payload.billing_exception_reason,
         })
         notify_roles(db, {"doctor", "nurse", "cashier"}, "Discharge recorded",
                      "A discharge was completed and bed availability was updated.", "admission", exclude_profile_id=profile.id)
