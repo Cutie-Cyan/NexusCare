@@ -364,6 +364,8 @@ def create_emergency_event(
         db.add(encounter)
         db.flush()
     roles = _roles(profile, db)
+    if encounter is not None and roles.intersection({"doctor", "nurse"}):
+        ensure_encounter_access(profile, encounter, db)
     event = EmergencyEvent(
         patient_id=patient.id if patient else None,
         encounter_id=encounter.id if encounter else None,
