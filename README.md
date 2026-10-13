@@ -10,7 +10,7 @@ The `develop` branch contains a FastAPI backend for patient records and history,
 
 The connected Supabase project currently has **43 public tables** with RLS enabled and fictional demo reference data. The demo seed includes 20 fictional patients, 5 wards, 30 beds, service/laboratory/medicine catalogs, 2 fictional suppliers, and 3 fictional general-supply inventory items. No Auth demo accounts have been created because server-only secrets and passwords have not been configured.
 
-The React frontend now uses Supabase Auth, a bearer-token API client, role-aware navigation, a live summary dashboard, patient search/registration/history, notification center, and read-only API tables for other modules. Dedicated create/edit/action screens for most non-patient modules are still pending.
+The React frontend now uses Supabase Auth, a bearer-token API client, role-aware navigation, live dashboards, notifications, and operational forms for patient registration/history, admissions/transfers/discharge, clinical encounters/notes/vitals, emergency triage, laboratory results, pharmacy/dispensing, inventory, procurement, appointments, billing/payments, service fees, and staff provisioning. Departments, reports, receipts, audit logs, and settings currently use read-only API views.
 
 ## Stack
 
