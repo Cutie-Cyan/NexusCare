@@ -34,7 +34,7 @@ def _patient_scope(profile: Profile, roles: set[str], db: Session) -> UUID | Non
     if roles.intersection(CLINICAL_READ_ROLES):
         return None
     if roles == {"patient"}:
-        return db.scalar(select(Patient.id).where(Patient.patient_profile_id == profile.id))
+        return db.scalar(select(Patient.id).where(Patient.patient_profile_id == profile.id)) or UUID(int=0)
     raise HTTPException(status_code=403, detail="Insufficient permissions.")
 
 
@@ -81,7 +81,7 @@ def list_encounters(
     scope = _patient_scope(profile, roles, db)
     statement = select(Encounter)
     if scope is not None:
-        if scope is None:
+        if scope.int == 0:
             return []
         statement = statement.where(Encounter.patient_id == scope)
     elif patient_id is not None:
