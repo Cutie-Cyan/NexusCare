@@ -9,6 +9,26 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 PaymentMethod = Literal["cash", "card", "bank_transfer", "ewallet", "insurance", "other"]
 
 
+class ServiceCatalogCreate(BaseModel):
+    code: str = Field(min_length=2, max_length=50)
+    name: str = Field(min_length=2, max_length=180)
+    category: str = Field(min_length=2, max_length=80)
+    price: Decimal = Field(ge=0, max_digits=12, decimal_places=2)
+    is_active: bool = True
+
+    @field_validator("code")
+    @classmethod
+    def normalize_code(cls, value: str) -> str:
+        return value.strip().upper()
+
+
+class ServiceCatalogUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=180)
+    category: str | None = Field(default=None, min_length=2, max_length=80)
+    price: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    is_active: bool | None = None
+
+
 class BillItemInput(BaseModel):
     description: str = Field(min_length=2, max_length=240)
     quantity: int = Field(gt=0, le=100000)
