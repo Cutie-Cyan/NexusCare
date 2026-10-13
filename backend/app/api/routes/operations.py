@@ -22,7 +22,7 @@ from app.schemas.operations import (
     ProcurementRequestCreate, ProcurementRequestRead, ReceivingRecordCreate, ReceivingRecordRead,
     InventoryItemCreate, InventoryItemRead, InventoryItemTransactionRead,
     InventoryMovementCreate, NotificationCreate, NotificationRead,
-    OnlineConsultationCreate, OnlineConsultationRead, SupplierCreate,
+    OnlineConsultationCreate, OnlineConsultationRead, OnlineConsultationUpdate, SupplierCreate,
     SupplierRead, SystemSettingRead, SystemSettingWrite,
 )
 
@@ -500,6 +500,72 @@ def create_online_consultation(
     db.flush()
     _audit(db, profile, "online_consultation.created", "online_consultation", consultation.id, {
         "appointment_id": str(appointment.id),
+    })
+    db.commit()
+    db.refresh(consultation)
+    return consultation
+
+
+@router.post("/appointments/{appointment_id}/request-online-consultation", response_model=OnlineConsultationRead, status_code=status.HTTP_201_CREATED)
+def request_online_consultation(
+    appointment_id: UUID,
+    profile: Profile = Depends(get_current_profile),
+    db: Session = Depends(get_db),
+) -> OnlineConsultation:
+    roles = _roles(profile, db)
+    appointment = db.scalar(select(Appointment).where(Appointment.id == appointment_id))
+    if appointment is None:
+        raise HTTPException(status_code=404, detail="Appointment not found.")
+    if "patient" in roles and not roles.intersection(APPOINTMENT_READ_ROLES):
+        own_patient_id = db.scalar(select(Patient.id).where(Patient.patient_profile_id == profile.id))
+        if own_patient_id != appointment.patient_id:
+            raise HTTPException(status_code=404, detail="Appointment not found.")
+    elif not roles.intersection(set(APPOINTMENT_CREATE_ROLES)):
+        raise HTTPException(status_code=403, detail="Insufficient permissions.")
+    if appointment.status not in {"scheduled", "confirmed"}:
+        raise HTTPException(status_code=409, detail="Only scheduled or confirmed appointments can request an online consultation.")
+    if db.scalar(select(OnlineConsultation.id).where(OnlineConsultation.appointment_id == appointment.id)):
+        raise HTTPException(status_code=409, detail="An online consultation record already exists.")
+    consultation = OnlineConsultation(appointment_id=appointment.id, status="requested")
+    db.add(consultation)
+    db.flush()
+    _audit(db, profile, "online_consultation.requested", "online_consultation", consultation.id, {
+        "appointment_id": str(appointment.id),
+    })
+    notify_roles(db, {"administrator", "doctor"}, "Online consultation requested",
+                 "An appointment has an online consultation request awaiting review.", "appointment", exclude_profile_id=profile.id)
+    db.commit()
+    db.refresh(consultation)
+    return consultation
+
+
+@router.patch("/online-consultations/{consultation_id}", response_model=OnlineConsultationRead)
+def update_online_consultation(
+    consultation_id: UUID,
+    payload: OnlineConsultationUpdate,
+    profile: Profile = Depends(require_roles("administrator", "doctor")),
+    db: Session = Depends(get_db),
+) -> OnlineConsultation:
+    consultation = db.scalar(select(OnlineConsultation).where(
+        OnlineConsultation.id == consultation_id
+    ).with_for_update())
+    if consultation is None:
+        raise HTTPException(status_code=404, detail="Online consultation not found.")
+    if consultation.status in {"completed", "cancelled"}:
+        raise HTTPException(status_code=409, detail="Closed online consultations cannot be changed.")
+    if payload.status == "in_progress" and consultation.status not in {"requested", "scheduled"}:
+        raise HTTPException(status_code=409, detail="Only requested or scheduled sessions can start.")
+    if payload.status == "completed" and consultation.status != "in_progress":
+        raise HTTPException(status_code=409, detail="Only an active session can be completed.")
+    consultation.status = payload.status
+    if payload.meeting_url is not None:
+        consultation.meeting_url = payload.meeting_url.strip() or None
+    if payload.status == "in_progress":
+        consultation.started_at = datetime.now(timezone.utc)
+    if payload.status in {"completed", "cancelled"}:
+        consultation.ended_at = datetime.now(timezone.utc)
+    _audit(db, profile, "online_consultation.updated", "online_consultation", consultation.id, {
+        "status": consultation.status, "appointment_id": str(consultation.appointment_id),
     })
     db.commit()
     db.refresh(consultation)
