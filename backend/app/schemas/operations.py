@@ -99,8 +99,8 @@ class DoctorScheduleCreate(BaseModel):
     doctor_id: UUID
     department_id: UUID | None = None
     weekday: int = Field(ge=0, le=6)
-    start_time: str = Field(pattern=r"^(?:[01]\\d|2[0-3]):[0-5]\\d$")
-    end_time: str = Field(pattern=r"^(?:[01]\\d|2[0-3]):[0-5]\\d$")
+    start_time: str = Field(pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    end_time: str = Field(pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
     is_active: bool = True
 
     @field_validator("end_time")
