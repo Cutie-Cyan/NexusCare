@@ -39,11 +39,19 @@ API docs: http://127.0.0.1:8000/docs
 - `POST /api/v1/patients` — register a patient (administrator or information officer)
 - `PATCH /api/v1/patients/{patient_id}` — update demographics (administrator or information officer)
 - `DELETE /api/v1/patients/{patient_id}` — deactivate a record without deleting history (administrator or information officer)
+- `GET /api/v1/wards` — list active wards for authorized roles
+- `GET /api/v1/beds?ward_id=&available_only=true` — list bed status and availability
+- `GET /api/v1/admissions?patient_id=&active_only=true&limit=50&offset=0` — list admissions
+- `GET /api/v1/admissions/{admission_id}` — read one admission
+- `POST /api/v1/admissions` — admit a patient (administrator or information officer)
+- `POST /api/v1/admissions/{admission_id}/discharge` — discharge a patient and release the bed (administrator or information officer)
 
 All patient endpoints require a valid Supabase bearer access token and an active NexusCare profile. Patient accounts can only list/view their own linked patient record. Patient registration and changes are written to `audit_logs`. Medical record numbers are unique and immutable after creation.
 
 ## Database migration
 The initial migration has not been applied automatically. Review `docs/setup.md` and the migration before running `uv run alembic upgrade head` against the development Supabase project. Do not run migrations against production without a backup and review.
 
-## Phase 3 limitations
-This is the first patient API foundation, not a complete hospital workflow. Staff patient access still needs encounter/department-specific scope before production use. No real patient data should be used in demo or test environments.
+## Phase 4: admissions and bed management
+Admission and bed endpoints require a valid Supabase bearer token and an active NexusCare profile. Only administrators and information officers can admit or discharge. Doctors and nurses can view admissions; patient accounts can view only admissions linked to their own patient record. Bed assignment uses database row locks to reduce concurrent double-booking, checks that the bed is available and its ward active, and updates the bed and admission in one transaction. Discharge releases the bed and preserves admission history. Audit events are recorded.
+
+This phase does not yet implement ward transfers, encounter/clinical workflows, department-specific access scopes, or production clinical validation. Staff access must be tightened to assigned care relationships before production use. No real patient data should be used in demo or test environments.
