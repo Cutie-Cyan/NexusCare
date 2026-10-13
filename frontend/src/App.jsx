@@ -1,7 +1,66 @@
 import { useState } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './layouts/AppLayout.jsx'
+import { AuthProvider, useAuth } from './AuthProvider.jsx'
+import { DashboardPage } from './pages/DashboardPage.jsx'
+import { LoginPage } from './pages/LoginPage.jsx'
+import { PatientsPage } from './pages/PatientsPage.jsx'
 import { PlaceholderPage } from './pages/PlaceholderPage.jsx'
+
 const pages = [
-['/','Dashboard','A role-specific overview will appear after authentication and live API data are implemented.'],['/patients','Patients','Patient search, registration, demographic details, and authorized medical history are planned for Phase 3.'],['/registration','Registration','Patient registration and duplicate-record checks are planned for Phase 3.'],['/admissions','Admissions','Admission, transfer, discharge, and bed allocation are planned for Phase 3.'],['/emergency','Emergency Room','Emergency triage and department routing are planned for the clinical workflow phase.'],['/wards','Wards & Beds','Ward occupancy and bed availability will be database-backed in a later phase.'],['/consultations','Consultations','Consultations, diagnoses, and clinical notes are planned for Phase 4.'],['/nursing','Nursing Station','Nursing observations and assigned-patient workflows are planned for Phase 4.'],['/laboratory','Laboratory','Test queues, results, and result release are planned for Phase 4.'],['/prescriptions','Prescriptions','Prescription creation and review are planned for Phase 4.'],['/pharmacy','Pharmacy','Prescription dispensing and stock updates are planned for Phase 5.'],['/inventory','Inventory','Inventory levels, batches, suppliers, and stock movements are planned for Phase 5.'],['/appointments','Appointments','Scheduling and appointment management are planned for Phase 6.'],['/online-consultation','Online Consultation','Online consultation workflows are planned for Phase 6.'],['/billing','Billing','Itemized bills and configurable service fees are planned for Phase 5.'],['/payments','Payments','Payment posting, idempotency, and auditable reversals are planned for Phase 5.'],['/receipts','Receipts','Receipt generation for verified transactions is planned for Phase 5.'],['/staff','Staff & Accounts','Staff management and role assignment are planned for Phase 2.'],['/departments','Departments','Department configuration is planned for a later phase.'],['/service-fees','Service Fees','Configurable hospital service fees are planned for Phase 5.'],['/reports','Reports & Analytics','Reports will use verified database data once modules are implemented.'],['/audit-logs','Audit Logs','Auditable activity tracking is planned alongside authentication and sensitive workflows.'],['/settings','Settings','System and user preferences will be implemented in later phases.']]
-export default function App(){const [theme,setTheme]=useState(()=>{try{return localStorage.getItem('nexuscare-theme')||'dark'}catch{return'dark'}});function toggleTheme(){setTheme(current=>{const next=current==='dark'?'light':'dark';try{localStorage.setItem('nexuscare-theme',next)}catch{}return next})}return <div className={'app-shell theme-'+theme}><AppLayout theme={theme} onToggleTheme={toggleTheme}><Routes>{pages.map(([path,title,description])=><Route key={path} path={path} element={<PlaceholderPage title={title} description={description}/>}/>) }<Route path="*" element={<Navigate to="/" replace/>}/></Routes></AppLayout></div>}
+  ['/registration', 'Registration', 'Patient registration and demographic updates are available through the patient API; a dedicated registration workflow is still being refined.'],
+  ['/admissions', 'Admissions', 'Admission, transfer, discharge, ward, and bed APIs are available. Dedicated workflow screens remain in progress.'],
+  ['/emergency', 'Emergency Room', 'Emergency registration and triage APIs are available for authorized clinical roles.'],
+  ['/wards', 'Wards & Beds', 'View ward and bed availability through the admissions API.'],
+  ['/consultations', 'Consultations', 'Clinical encounters, diagnoses, consultations, and append-only notes are available through the API.'],
+  ['/nursing', 'Nursing Station', 'Vital signs and nursing-note APIs are available for authorized nursing staff.'],
+  ['/laboratory', 'Laboratory', 'Laboratory orders, processing status, results, and independent result verification APIs are available.'],
+  ['/prescriptions', 'Prescriptions', 'Doctor-issued prescriptions and prescription item APIs are available.'],
+  ['/pharmacy', 'Pharmacy', 'Medicine catalog, batches, stock levels, and safe prescription dispensing APIs are available.'],
+  ['/inventory', 'Inventory', 'Supplier records, stock movements, reorder checks, and transaction history APIs are available.'],
+  ['/appointments', 'Appointments', 'Appointment scheduling, status updates, and clinician scheduling APIs are available.'],
+  ['/online-consultation', 'Online Consultation', 'Online-consultation session records can be created for eligible appointments.'],
+  ['/billing', 'Billing', 'Itemized bills, service catalog, and bill balance APIs are available.'],
+  ['/payments', 'Payments', 'Idempotent payment posting and administrator-only audited payment reversals are available.'],
+  ['/receipts', 'Receipts', 'Receipt records are created with successful payment postings. Dedicated printable receipt UI remains in progress.'],
+  ['/staff', 'Staff & Accounts', 'Supabase Auth and role checks are active. Administrative staff provisioning still requires a dedicated workflow.'],
+  ['/departments', 'Departments', 'Department records support ward, encounter, and appointment workflows. Department administration UI remains in progress.'],
+  ['/service-fees', 'Service Fees', 'The service catalog API provides active billable services and prices.'],
+  ['/reports', 'Reports & Analytics', 'The reporting API exposes authorized operational summary metrics.'],
+  ['/audit-logs', 'Audit Logs', 'Sensitive workflows write audit records. A dedicated audit-log browser is not yet exposed.'],
+  ['/settings', 'Settings', 'Administrator-only system-setting APIs are available.'],
+]
+
+function AuthenticatedWorkspace() {
+  const { session, loading, configured, signOut } = useAuth()
+  const [theme, setTheme] = useState(() => {
+    try { return localStorage.getItem('nexuscare-theme') || 'dark' } catch { return 'dark' }
+  })
+  function toggleTheme() {
+    setTheme(current => {
+      const next = current === 'dark' ? 'light' : 'dark'
+      try { localStorage.setItem('nexuscare-theme', next) } catch {}
+      return next
+    })
+  }
+  async function handleSignOut() {
+    try { await signOut() } catch (error) { window.alert(error.message || 'Unable to sign out.') }
+  }
+  if (loading) return <main className="auth-page"><div className="empty-state">Checking your session…</div></main>
+  if (!configured || !session) return <LoginPage />
+
+  return <div className={'app-shell theme-' + theme}>
+    <AppLayout theme={theme} onToggleTheme={toggleTheme} userEmail={session.user?.email} onSignOut={handleSignOut}>
+      <Routes>
+        <Route path="/" element={<DashboardPage />} />
+        <Route path="/patients" element={<PatientsPage />} />
+        {pages.map(([path, title, description]) => <Route key={path} path={path} element={<PlaceholderPage title={title} description={description} />} />)}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </AppLayout>
+  </div>
+}
+
+export default function App() {
+  return <AuthProvider><AuthenticatedWorkspace /></AuthProvider>
+}
