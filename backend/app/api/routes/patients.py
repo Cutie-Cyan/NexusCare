@@ -8,7 +8,11 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_profile, get_profile_roles, require_roles
 from app.db.session import get_db
 from app.core.notifications import notify_roles
-from app.models import AuditLog, Patient, Profile
+from app.models import (
+    Admission, Appointment, AuditLog, Bill, Diagnosis, Encounter, LaboratoryOrder,
+    LaboratoryResult, Patient, Payment, Prescription, PrescriptionItem, Profile,
+    VitalSign,
+)
 from app.schemas.patient import PatientCreate, PatientRead, PatientUpdate
 
 router = APIRouter(prefix="/patients", tags=["patients"])
@@ -104,6 +108,111 @@ def create_patient(
             status_code=status.HTTP_409_CONFLICT,
             detail="A patient with that medical record number already exists.",
         ) from exc
+
+
+
+@router.get("/{patient_id}/history", summary="Retrieve a patient's authorized medical history")
+def get_patient_history(
+    patient_id: UUID,
+    profile: Profile = Depends(get_current_profile),
+    db: Session = Depends(get_db),
+) -> dict:
+    role_codes = set(get_profile_roles(profile.id, db))
+    patient = db.scalar(select(Patient).where(Patient.id == patient_id, Patient.is_active.is_(True)))
+    if patient is None:
+        raise HTTPException(status_code=404, detail="Patient not found.")
+    if role_codes == {"patient"} or ("patient" in role_codes and not role_codes.intersection(PATIENT_STAFF_READ_ROLES)):
+        if patient.patient_profile_id != profile.id:
+            raise HTTPException(status_code=404, detail="Patient not found.")
+    elif not role_codes.intersection(PATIENT_STAFF_READ_ROLES):
+        raise HTTPException(status_code=403, detail="Insufficient permissions.")
+
+    encounters = db.scalars(select(Encounter).where(
+        Encounter.patient_id == patient.id
+    ).order_by(Encounter.started_at.desc())).all()
+    encounter_ids = [row.id for row in encounters]
+    diagnoses = db.scalars(select(Diagnosis).where(
+        Diagnosis.encounter_id.in_(encounter_ids)
+    ).order_by(Diagnosis.id)).all() if encounter_ids else []
+    vitals = db.scalars(select(VitalSign).where(
+        VitalSign.encounter_id.in_(encounter_ids)
+    ).order_by(VitalSign.recorded_at.desc())) .all() if encounter_ids else []
+    lab_rows = db.execute(
+        select(LaboratoryOrder, LaboratoryResult)
+        .join(LaboratoryResult, LaboratoryResult.order_id == LaboratoryOrder.id)
+        .where(LaboratoryOrder.encounter_id.in_(encounter_ids), LaboratoryResult.status == "released")
+        .order_by(LaboratoryResult.created_at.desc())
+    ).all() if encounter_ids else []
+    prescription_rows = db.scalars(select(Prescription).where(
+        Prescription.encounter_id.in_(encounter_ids)
+    ).order_by(Prescription.created_at.desc())).all() if encounter_ids else []
+    admissions = db.scalars(select(Admission).where(
+        Admission.patient_id == patient.id
+    ).order_by(Admission.admitted_at.desc())).all()
+    appointments = db.scalars(select(Appointment).where(
+        Appointment.patient_id == patient.id
+    ).order_by(Appointment.scheduled_at.desc()).limit(100)).all()
+
+    result = {
+        "patient": PatientRead.model_validate(patient).model_dump(mode="json"),
+        "encounters": [{
+            "id": str(row.id), "encounter_type": row.encounter_type,
+            "status": row.status, "chief_complaint": row.chief_complaint,
+            "started_at": row.started_at.isoformat() if row.started_at else None,
+            "ended_at": row.ended_at.isoformat() if row.ended_at else None,
+        } for row in encounters],
+        "diagnoses": [{
+            "id": str(row.id), "encounter_id": str(row.encounter_id),
+            "code": row.code, "description": row.description,
+            "is_primary": row.is_primary,
+        } for row in diagnoses],
+        "vital_signs": [{
+            "id": str(row.id), "encounter_id": str(row.encounter_id),
+            "temperature_c": row.temperature_c, "pulse_bpm": row.pulse_bpm,
+            "respiratory_rate": row.respiratory_rate,
+            "systolic_bp": row.systolic_bp, "diastolic_bp": row.diastolic_bp,
+            "oxygen_saturation": row.oxygen_saturation,
+            "weight_kg": row.weight_kg, "height_cm": row.height_cm,
+            "recorded_at": row.recorded_at.isoformat() if row.recorded_at else None,
+        } for row in vitals],
+        "released_laboratory_results": [{
+            "order_id": str(order.id), "result_id": str(lab_result.id),
+            "test_id": str(order.test_id), "status": lab_result.status,
+            "result_text": lab_result.result_text, "result_data": lab_result.result_data,
+            "released_at": lab_result.verified_at.isoformat() if lab_result.verified_at else None,
+        } for order, lab_result in lab_rows],
+        "prescriptions": [{
+            "id": str(row.id), "encounter_id": str(row.encounter_id),
+            "status": row.status, "instructions": row.instructions,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+        } for row in prescription_rows],
+        "admissions": [{
+            "id": str(row.id), "status": row.status, "admission_type": row.admission_type,
+            "bed_id": str(row.bed_id) if row.bed_id else None,
+            "admitted_at": row.admitted_at.isoformat() if row.admitted_at else None,
+            "discharged_at": row.discharged_at.isoformat() if row.discharged_at else None,
+        } for row in admissions],
+        "appointments": [{
+            "id": str(row.id), "scheduled_at": row.scheduled_at.isoformat(),
+            "status": row.status, "reason": row.reason,
+            "clinician_id": str(row.clinician_id) if row.clinician_id else None,
+        } for row in appointments],
+    }
+    if role_codes.intersection({"administrator", "information_officer", "cashier", "patient"}):
+        bills = db.scalars(select(Bill).where(
+            Bill.patient_id == patient.id
+        ).order_by(Bill.created_at.desc())).all()
+        result["bills"] = [{
+            "id": str(bill.id), "bill_number": bill.bill_number, "status": bill.status,
+            "subtotal": bill.subtotal, "adjustments": bill.adjustments, "total": bill.total,
+            "payments": [{
+                "id": str(payment.id), "amount": payment.amount,
+                "payment_method": payment.payment_method, "status": payment.status,
+                "receipt_number": payment.receipt_number,
+                "received_at": payment.received_at.isoformat() if payment.received_at else None,
+            } for payment in db.scalars(select(Payment).where(Payment.bill_id == bill.id).order_by(Payment.received_at.desc())).all()],
+        } for bill in bills]
+    return result
 
 
 @router.patch("/{patient_id}", response_model=PatientRead, summary="Update patient demographics")
