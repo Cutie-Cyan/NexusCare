@@ -8,6 +8,10 @@ const blankVitals = { temperature_c: '', pulse_bpm: '', respiratory_rate: '', sy
 
 function numberOrNull(value) { return value === '' ? null : Number(value) }
 
+function useEncounterDetail(encounterId, suffix, enabled = true) {
+  return useQuery({ queryKey: ['encounter-detail', encounterId, suffix], queryFn: () => apiRequest('/encounters/' + encounterId + '/' + suffix), enabled: Boolean(encounterId) && enabled })
+}
+
 export function ClinicalPage({ roles = [], nursingOnly = false }) {
   const isDoctor = roles.includes('doctor')
   const isNurse = roles.includes('nurse')
@@ -20,17 +24,12 @@ export function ClinicalPage({ roles = [], nursingOnly = false }) {
   const [error, setError] = useState('')
   const client = useQueryClient()
   const encounters = useQuery({ queryKey: ['encounters'], queryFn: () => apiRequest('/encounters?limit=100') })
-  const patients = useQuery({ queryKey: ['patients', 'encounter-options'], queryFn: () => apiRequest('/patients?limit=100'), enabled: isDoctor && !nursingOnly })
+  const patients = useQuery({ queryKey: ['patients', 'encounter-options'], queryFn: () => apiRequest('/patients?limit=100'), enabled: isDoctor || isNurse })
   const departments = useQuery({ queryKey: ['departments'], queryFn: () => apiRequest('/departments'), enabled: isDoctor && !nursingOnly })
-  const selectedQuery = (suffix, enabled = true) => useQuery({
-    queryKey: ['encounter-detail', selectedEncounterId, suffix],
-    queryFn: () => apiRequest('/encounters/' + selectedEncounterId + '/' + suffix),
-    enabled: Boolean(selectedEncounterId) && enabled,
-  })
-  const vitalRows = selectedQuery('vitals', canWriteVitals)
-  const diagnoses = selectedQuery('diagnoses', isDoctor && !nursingOnly)
-  const consultationNotes = selectedQuery('consultation-notes', isDoctor && !nursingOnly)
-  const nursingNotes = selectedQuery('nursing-notes', isNurse || nursingOnly)
+  const vitalRows = useEncounterDetail(selectedEncounterId, 'vitals', canWriteVitals)
+  const diagnoses = useEncounterDetail(selectedEncounterId, 'diagnoses', isDoctor && !nursingOnly)
+  const consultationNotes = useEncounterDetail(selectedEncounterId, 'consultation-notes', isDoctor && !nursingOnly)
+  const nursingNotes = useEncounterDetail(selectedEncounterId, 'nursing-notes', isNurse || nursingOnly)
 
   const createEncounter = useMutation({
     mutationFn: () => apiRequest('/encounters', { method: 'POST', body: {
