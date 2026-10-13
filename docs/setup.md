@@ -26,8 +26,6 @@ bun run dev
 ```
 Open the URL printed by Vite, normally http://localhost:5173.
 
-Frontend environment variables are prefixed with `VITE_`. Never put a database password, Supabase secret/service-role key, or signing secret into frontend environment variables.
-
 ## Backend
 Open a second terminal from the repository root:
 ```bash
@@ -37,14 +35,9 @@ uv sync
 cp .env.example .env
 ```
 
-Edit `backend/.env` and set:
-- `SUPABASE_URL`: existing NexusCare Supabase project URL
-- `SUPABASE_PUBLISHABLE_KEY`: the project's publishable key, used by the backend Supabase client for Auth verification
-- `DATABASE_URL`: a Postgres connection string in SQLAlchemy format, e.g. `postgresql+psycopg://postgres:<PASSWORD>@<HOST>:5432/postgres`
+Set `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `DATABASE_URL` in `backend/.env`. Use the URL and publishable key from the existing NexusCare project. Use the database URI from Supabase **Connect**, in SQLAlchemy format `postgresql+psycopg://...`; URL-encode special characters in the password if needed. Never commit `.env`.
 
-Use the connection type recommended by Supabase for your network. URL-encode special characters in the password where necessary. Do not commit `.env`, database passwords, or secret keys.
-
-Run the API:
+Run tests and start the API:
 ```bash
 uv run pytest
 uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
@@ -53,41 +46,28 @@ uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 - API docs: http://127.0.0.1:8000/docs
 
 ## Database migration
-**Review the migration and verify the target project before running this against Supabase.** The migration creates tables and enables row-level security. Do not run it against production data without a backup and review.
+Review `backend/alembic/versions/20261010_0001_initial_schema.py` and verify the target project before running the migration. This creates the initial tables and RLS policies. Do not run against a production database without backup/review.
 
-From `backend/`, with `DATABASE_URL` configured:
+From `backend/`:
 ```bash
 uv run alembic upgrade head
 uv run alembic current
 ```
 
-To seed fictional development data after the migration:
+## Fictional demo data
+After migration:
 ```bash
 uv run python scripts/seed_demo.py
 ```
-The default seed creates role and reference records plus 20 fictional patients. Do not use real patient information. To also create five fictional doctor accounts in the existing Supabase Auth project, first set the server-only `SUPABASE_SECRET_KEY` and a development-only `SEED_DOCTOR_PASSWORD` (at least 12 characters) in `backend/.env`, then explicitly run `uv run python scripts/seed_demo.py --create-auth-users`. This modifies Supabase Auth, so only run it when you intentionally want those demo accounts. Never use the demo password in production.
+This idempotently seeds role and department reference records, service/lab/medicine catalog items, 20 fictional patients, two wards, and 15 fictional beds. No real patient information should be used.
 
-## Phase 3: Patients API
-- Run `uv run pytest` before starting the API.
-- Start FastAPI and open http://127.0.0.1:8000/docs.
-- Authenticate with a valid Supabase access token to try the patient endpoints.
-- Registration, demographic updates, and deactivation are limited to the administrator and information officer roles.
-- A patient account can only read/list the patient record linked to its own NexusCare profile.
-- Deactivation is a soft action (`is_active = false`), not a hard delete.
-- Patient changes are logged in `audit_logs`.
-
-Staff access is role-gated for this initial phase, but patient/encounter/department scope must be tightened before production deployment. The direct SQLAlchemy connection is privileged separately from Supabase RLS; FastAPI must enforce authorization for every route.
-
-## Phase 4: Admissions and bed management
-The API provides ward and bed listing, admission creation, active admission listing, single-admission retrieval, and discharge. Admission/discharge are restricted to administrators and information officers. Doctors and nurses can read admissions; patient accounts can read only admissions linked to their own patient record. When assigning a bed, the API locks the patient and bed rows, checks active admission/bed availability, and commits admission + bed status together. Discharge releases the bed and keeps the admission record. Changes are written to `audit_logs`.
-
-These endpoints require the schema migration to be applied and fictional reference data to be seeded. If you have not run the migration on your laptop, the API cannot read these tables yet.
+Optional: create five fictional doctor accounts only if you intentionally want them in the Supabase Auth project. Set server-only `SUPABASE_SECRET_KEY` and a development-only `SEED_DOCTOR_PASSWORD` (at least 12 characters) in `backend/.env`, then run `uv run python scripts/seed_demo.py --create-auth-users`. Never use demo credentials in production.
 
 ## Current implementation status
-- Phase 1: repository, app scaffolding, documentation.
+- Phase 1: repository scaffolding and documentation.
 - Phase 2: schema/migration foundation, Supabase Auth verification, RBAC dependency, fictional seed script.
-- Phase 3: patient registration, search, retrieval, demographic update, and soft deactivation endpoints.
-- Phase 4: admission listing/creation/discharge and ward/bed availability endpoints.
-- Not yet implemented: ward transfers, clinical encounters/consultations, nursing, emergency, labs, pharmacy, billing, inventory, appointments, notifications UI, and analytics workflows.
+- Phase 3: patient registration, search, retrieval, demographic update, soft deactivation.
+- Phase 4: ward/bed management, admission, bed transfer, discharge, audit logging.
+- Not yet implemented: emergency triage, clinical encounters/consultations, nursing, laboratory, pharmacy, billing, inventory, appointments, notifications UI, and analytics.
 
-Generate and commit `backend/uv.lock` in an environment with package registry access. Do not commit `.env` or any secrets.
+**Security note:** direct SQLAlchemy access does not automatically enforce Supabase RLS based on the signed-in user. FastAPI role checks currently protect these routes, but staff access must be tightened to department/encounter-specific scopes before production. Do not use real patient data.
