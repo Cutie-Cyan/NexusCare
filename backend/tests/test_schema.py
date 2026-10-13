@@ -47,3 +47,16 @@ def test_patient_records_can_be_linked_to_auth_profiles():
     patients = Base.metadata.tables["patients"]
     assert "patient_profile_id" in patients.columns
     assert patients.columns["patient_profile_id"].unique is True
+
+
+def test_admission_and_ward_tables_have_required_foreign_keys():
+    admissions = Base.metadata.tables["admissions"]
+    beds = Base.metadata.tables["beds"]
+    assert admissions.columns["patient_id"].nullable is False
+    assert "patients.id" in {str(fk.column) for fk in admissions.columns["patient_id"].foreign_keys}
+    assert "wards.id" in {str(fk.column) for fk in beds.columns["ward_id"].foreign_keys}
+
+
+def test_admission_bed_assignment_is_optional_for_emergency_overflow():
+    admissions = Base.metadata.tables["admissions"]
+    assert admissions.columns["bed_id"].nullable is True
