@@ -78,10 +78,16 @@ The default seed creates role and reference records plus 20 fictional patients. 
 
 Staff access is role-gated for this initial phase, but patient/encounter/department scope must be tightened before production deployment. The direct SQLAlchemy connection is privileged separately from Supabase RLS; FastAPI must enforce authorization for every route.
 
+## Phase 4: Admissions and bed management
+The API provides ward and bed listing, admission creation, active admission listing, single-admission retrieval, and discharge. Admission/discharge are restricted to administrators and information officers. Doctors and nurses can read admissions; patient accounts can read only admissions linked to their own patient record. When assigning a bed, the API locks the patient and bed rows, checks active admission/bed availability, and commits admission + bed status together. Discharge releases the bed and keeps the admission record. Changes are written to `audit_logs`.
+
+These endpoints require the schema migration to be applied and fictional reference data to be seeded. If you have not run the migration on your laptop, the API cannot read these tables yet.
+
 ## Current implementation status
 - Phase 1: repository, app scaffolding, documentation.
 - Phase 2: schema/migration foundation, Supabase Auth verification, RBAC dependency, fictional seed script.
 - Phase 3: patient registration, search, retrieval, demographic update, and soft deactivation endpoints.
-- Not yet implemented: admissions, beds, clinical encounters, nursing, labs, pharmacy, billing, inventory, appointments, notifications UI, and analytics workflows.
+- Phase 4: admission listing/creation/discharge and ward/bed availability endpoints.
+- Not yet implemented: ward transfers, clinical encounters/consultations, nursing, emergency, labs, pharmacy, billing, inventory, appointments, notifications UI, and analytics workflows.
 
 Generate and commit `backend/uv.lock` in an environment with package registry access. Do not commit `.env` or any secrets.
