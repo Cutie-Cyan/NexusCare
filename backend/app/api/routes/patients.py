@@ -140,7 +140,7 @@ def get_patient_history(
     lab_rows = db.execute(
         select(LaboratoryOrder, LaboratoryResult)
         .join(LaboratoryResult, LaboratoryResult.order_id == LaboratoryOrder.id)
-        .where(LaboratoryOrder.encounter_id.in_(encounter_ids), LaboratoryResult.status == "released")
+        .where(LaboratoryOrder.encounter_id.in_(encounter_ids), LaboratoryResult.status.in_(["verified", "released"]))
         .order_by(LaboratoryResult.created_at.desc())
     ).all() if encounter_ids else []
     prescription_rows = db.scalars(select(Prescription).where(
