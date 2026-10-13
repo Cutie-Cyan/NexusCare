@@ -53,6 +53,8 @@ API docs: http://127.0.0.1:8000/docs
 - `GET /api/v1/emergency-events` — list emergency-room events
 - `POST /api/v1/emergency-events` — register an emergency event and link/create an encounter when a patient is known
 - `PATCH /api/v1/emergency-events/{id}/triage` — update triage level and emergency status
+- `GET/POST /api/v1/encounters/{id}/consultation-notes` — list or add doctor-authored consultation notes
+- `GET/POST /api/v1/encounters/{id}/nursing-notes` — list or add nurse-authored nursing notes
 
 ## Database migration and seed
 The initial schema migration must be reviewed and applied to the development Supabase project before using database endpoints. See [setup guide](../docs/setup.md). After applying it, run:
@@ -66,4 +68,4 @@ The seed is idempotent and uses fictional data. It creates reference data, 20 fi
 ## Security and current limits
 All protected endpoints require a valid Supabase bearer access token and an active NexusCare profile. Role checks are enforced by FastAPI; the direct SQLAlchemy connection does not automatically inherit the user's Supabase RLS permissions. Patient list/detail access is limited to a patient's own linked record or authorized staff roles. Admission and bed operations use database row locks for key state transitions and log important changes to `audit_logs`.
 
-This is a capstone development foundation, not yet production-ready clinical software. Department/encounter-specific staff access, lab workflows, pharmacy, billing, inventory, appointments, notifications, and full frontend integration remain to be implemented. Clinical endpoints are a development foundation and require further workflow/security review before real patient data is used.
+This is a capstone development foundation, not yet production-ready clinical software. Department/encounter-specific staff access, lab workflows, pharmacy, billing, inventory, appointments, notifications, and full frontend integration remain to be implemented. Clinical and note endpoints are a development foundation and require further workflow/security review before real patient data is used.
