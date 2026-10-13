@@ -65,9 +65,7 @@ export function AuditLogsPage() {
 
 export function SettingsPage() {
   const [settingKey, setSettingKey] = useState('')
-  const [settingValue, setSettingValue] = useState('{
-  
-}')
+  const [settingValue, setSettingValue] = useState('{\\n  \\n}')
   const [description, setDescription] = useState('')
   const [error, setError] = useState('')
   const client = useQueryClient()
