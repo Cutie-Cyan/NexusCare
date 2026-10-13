@@ -89,7 +89,7 @@ function AuthenticatedWorkspace() {
   if (!configured || !session) return <LoginPage />
   if (identity.isPending) return <main className="auth-page"><div className="empty-state">Loading your NexusCare profile…</div></main>
   if (identity.isError) return <main className="auth-page"><section className="auth-card"><h1>Could not connect to NexusCare</h1><p className="auth-description">{identity.error.message}</p><p className="auth-description">Confirm FastAPI is running and VITE_API_BASE_URL points to its API base.</p><button className="primary-button" onClick={handleSignOut}>Sign out</button></section></main>
-  if (!identity.data.profile_complete) return <ProfileIncomplete onSignOut={handleSignOut}/>
+  if (!identity.data.profile_complete || !identity.data.roles?.length) return <ProfileIncomplete onSignOut={handleSignOut}/>
   const roles = identity.data.roles || []
 
   return <div className={'app-shell theme-' + theme}>
