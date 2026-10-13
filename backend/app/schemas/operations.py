@@ -66,9 +66,16 @@ class InventoryItemRead(BaseModel):
 
 
 class InventoryMovementCreate(BaseModel):
-    quantity_delta: Decimal = Field(ne=0, max_digits=12, decimal_places=3)
+    quantity_delta: Decimal = Field(max_digits=12, decimal_places=3)
     transaction_type: Literal["receipt", "issue", "adjustment"]
     notes: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("quantity_delta")
+    @classmethod
+    def reject_zero_delta(cls, value: Decimal) -> Decimal:
+        if value == 0:
+            raise ValueError("Inventory movement must change stock by a nonzero quantity.")
+        return value
 
     @field_validator("notes")
     @classmethod
