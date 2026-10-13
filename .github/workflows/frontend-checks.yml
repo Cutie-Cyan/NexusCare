@@ -1,0 +1,30 @@
+name: Frontend checks
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-checks.yml"
+  pull_request:
+    branches: [develop]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-checks.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+      - name: Install frontend dependencies
+        run: bun install
+      - name: Build frontend
+        run: bun run build
