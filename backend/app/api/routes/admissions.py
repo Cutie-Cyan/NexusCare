@@ -8,34 +8,38 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_profile, get_profile_roles, require_roles
 from app.db.session import get_db
-from app.models import Admission, AuditLog, Bed, Patient, Profile, Ward
-from app.schemas.admission import AdmissionCreate, AdmissionRead, BedRead, DischargeRequest, WardRead
+from app.models import Admission, AuditLog, Bed, Department, Patient, Profile, Ward, WardTransfer
+from app.schemas.admission import (
+    AdmissionCreate, AdmissionRead, BedCreate, BedRead, BedTransferCreate,
+    DischargeRequest, WardCreate, WardRead,
+)
 
 router = APIRouter(tags=["admissions and beds"])
-
-ADMISSION_READ_ROLES = {"administrator", "information_officer", "doctor", "nurse"}
+ADMISSION_READ_ROLES = {
+    "administrator", "information_officer", "doctor", "nurse",
+    "cashier", "laboratory_staff", "pharmacy_staff",
+}
 ADMISSION_WRITE_ROLES = ("administrator", "information_officer")
+WARD_ADMIN_ROLES = ("administrator",)
 
 
-def _require_admission_read_scope(profile: Profile, db: Session):
+def _read_scope(profile: Profile, db: Session) -> UUID | None:
     roles = set(get_profile_roles(profile.id, db))
     if roles.intersection(ADMISSION_READ_ROLES):
         return None
     if roles == {"patient"}:
-        patient = db.scalar(select(Patient.id).where(Patient.patient_profile_id == profile.id))
-        if patient is None:
-            return UUID(int=0)
-        return patient
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions.")
+        patient_id = db.scalar(select(Patient.id).where(Patient.patient_profile_id == profile.id))
+        return patient_id or UUID(int=0)
+    raise HTTPException(status_code=403, detail="Insufficient permissions.")
 
 
-def _audit(db: Session, profile: Profile, action: str, resource_id: UUID, details: dict) -> None:
+def _audit(db: Session, profile: Profile, action: str, resource_type: str, resource_id: UUID, details: dict | None = None) -> None:
     db.add(AuditLog(
         actor_profile_id=profile.id,
         action=action,
-        resource_type="admission",
+        resource_type=resource_type,
         resource_id=str(resource_id),
-        details=details,
+        details=details or {},
     ))
 
 
@@ -46,8 +50,29 @@ def list_wards(
 ) -> list[Ward]:
     roles = set(get_profile_roles(profile.id, db))
     if not roles.intersection(ADMISSION_READ_ROLES | {"patient"}):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions.")
+        raise HTTPException(status_code=403, detail="Insufficient permissions.")
     return list(db.scalars(select(Ward).where(Ward.is_active.is_(True)).order_by(Ward.name)).all())
+
+
+@router.post("/wards", response_model=WardRead, status_code=status.HTTP_201_CREATED, summary="Create a ward")
+def create_ward(
+    payload: WardCreate,
+    profile: Profile = Depends(require_roles(*WARD_ADMIN_ROLES)),
+    db: Session = Depends(get_db),
+) -> Ward:
+    if payload.department_id and db.scalar(select(Department.id).where(Department.id == payload.department_id)) is None:
+        raise HTTPException(status_code=404, detail="Department not found.")
+    ward = Ward(**payload.model_dump())
+    db.add(ward)
+    try:
+        db.flush()
+        _audit(db, profile, "ward.created", "ward", ward.id, {"code": ward.code})
+        db.commit()
+        db.refresh(ward)
+        return ward
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Ward code already exists or ward data conflicts.") from exc
 
 
 @router.get("/beds", response_model=list[BedRead], summary="List beds and availability")
@@ -59,13 +84,35 @@ def list_beds(
 ) -> list[Bed]:
     roles = set(get_profile_roles(profile.id, db))
     if not roles.intersection(ADMISSION_READ_ROLES | {"patient"}):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions.")
+        raise HTTPException(status_code=403, detail="Insufficient permissions.")
     statement = select(Bed).join(Ward, Bed.ward_id == Ward.id).where(Ward.is_active.is_(True))
     if ward_id:
         statement = statement.where(Bed.ward_id == ward_id)
     if available_only:
         statement = statement.where(Bed.status == "available")
     return list(db.scalars(statement.order_by(Bed.ward_id, Bed.bed_number)).all())
+
+
+@router.post("/beds", response_model=BedRead, status_code=status.HTTP_201_CREATED, summary="Create a bed")
+def create_bed(
+    payload: BedCreate,
+    profile: Profile = Depends(require_roles(*WARD_ADMIN_ROLES)),
+    db: Session = Depends(get_db),
+) -> Bed:
+    ward = db.scalar(select(Ward).where(Ward.id == payload.ward_id, Ward.is_active.is_(True)))
+    if ward is None:
+        raise HTTPException(status_code=404, detail="Active ward not found.")
+    bed = Bed(**payload.model_dump(), status="available")
+    db.add(bed)
+    try:
+        db.flush()
+        _audit(db, profile, "bed.created", "bed", bed.id, {"ward_id": str(ward.id), "bed_number": bed.bed_number})
+        db.commit()
+        db.refresh(bed)
+        return bed
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="That bed number already exists in this ward.") from exc
 
 
 @router.get("/admissions", response_model=list[AdmissionRead], summary="List admissions")
@@ -77,7 +124,7 @@ def list_admissions(
     profile: Profile = Depends(get_current_profile),
     db: Session = Depends(get_db),
 ) -> list[Admission]:
-    scope = _require_admission_read_scope(profile, db)
+    scope = _read_scope(profile, db)
     statement = select(Admission)
     if scope is not None:
         if scope.int == 0:
@@ -96,15 +143,15 @@ def get_admission(
     profile: Profile = Depends(get_current_profile),
     db: Session = Depends(get_db),
 ) -> Admission:
-    scope = _require_admission_read_scope(profile, db)
+    scope = _read_scope(profile, db)
     statement = select(Admission).where(Admission.id == admission_id)
     if scope is not None:
         if scope.int == 0:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Admission not found.")
+            raise HTTPException(status_code=404, detail="Admission not found.")
         statement = statement.where(Admission.patient_id == scope)
     admission = db.scalar(statement)
     if admission is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Admission not found.")
+        raise HTTPException(status_code=404, detail="Admission not found.")
     return admission
 
 
@@ -115,37 +162,35 @@ def create_admission(
     db: Session = Depends(get_db),
 ) -> Admission:
     try:
-        # Lock the patient row to serialize simultaneous admissions for one patient.
-        patient = db.scalar(
-            select(Patient).where(Patient.id == payload.patient_id, Patient.is_active.is_(True)).with_for_update()
-        )
+        patient = db.scalar(select(Patient).where(
+            Patient.id == payload.patient_id, Patient.is_active.is_(True)
+        ).with_for_update())
         if patient is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active patient not found.")
-        existing = db.scalar(
-            select(Admission.id).where(Admission.patient_id == patient.id, Admission.status == "admitted").limit(1)
-        )
-        if existing is not None:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Patient already has an active admission.")
+            raise HTTPException(status_code=404, detail="Active patient not found.")
+        existing = db.scalar(select(Admission.id).where(
+            Admission.patient_id == patient.id, Admission.status == "admitted"
+        ).limit(1))
+        if existing:
+            raise HTTPException(status_code=409, detail="Patient already has an active admission.")
 
         bed = None
-        if payload.bed_id is not None:
+        if payload.bed_id:
             bed = db.scalar(select(Bed).where(Bed.id == payload.bed_id).with_for_update())
             if bed is None:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bed not found.")
+                raise HTTPException(status_code=404, detail="Bed not found.")
             if bed.status != "available":
-                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Bed is not available.")
-            ward = db.scalar(select(Ward).where(Ward.id == bed.ward_id))
-            if ward is None or not ward.is_active:
-                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Bed's ward is inactive.")
+                raise HTTPException(status_code=409, detail="Bed is not available.")
+            ward = db.scalar(select(Ward).where(Ward.id == bed.ward_id, Ward.is_active.is_(True)))
+            if ward is None:
+                raise HTTPException(status_code=409, detail="Bed's ward is inactive.")
             bed.status = "occupied"
 
-        if payload.attending_doctor_id is not None:
+        if payload.attending_doctor_id:
             doctor = db.scalar(select(Profile).where(
                 Profile.id == payload.attending_doctor_id, Profile.is_active.is_(True)
             ))
             if doctor is None or "doctor" not in get_profile_roles(doctor.id, db):
-                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                                    detail="Attending doctor must be an active doctor profile.")
+                raise HTTPException(status_code=422, detail="Attending doctor must be an active doctor profile.")
 
         admission = Admission(
             patient_id=patient.id,
@@ -157,7 +202,7 @@ def create_admission(
         )
         db.add(admission)
         db.flush()
-        _audit(db, profile, "admission.created", admission.id, {
+        _audit(db, profile, "admission.created", "admission", admission.id, {
             "patient_id": str(patient.id), "bed_id": str(bed.id) if bed else None,
         })
         db.commit()
@@ -168,7 +213,60 @@ def create_admission(
         raise
     except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Admission conflicts with current records.") from exc
+        raise HTTPException(status_code=409, detail="Admission conflicts with current records.") from exc
+
+
+@router.post("/admissions/{admission_id}/transfer", response_model=AdmissionRead, summary="Transfer a patient to another bed")
+def transfer_admission(
+    admission_id: UUID,
+    payload: BedTransferCreate,
+    profile: Profile = Depends(require_roles(*ADMISSION_WRITE_ROLES)),
+    db: Session = Depends(get_db),
+) -> Admission:
+    try:
+        admission = db.scalar(select(Admission).where(
+            Admission.id == admission_id, Admission.status == "admitted"
+        ).with_for_update())
+        if admission is None:
+            raise HTTPException(status_code=404, detail="Active admission not found.")
+        if admission.bed_id is None:
+            raise HTTPException(status_code=409, detail="Admission has no assigned bed.")
+        bed_ids = sorted({admission.bed_id, payload.to_bed_id}, key=str)
+        beds = db.scalars(select(Bed).where(Bed.id.in_(bed_ids)).order_by(Bed.id).with_for_update()).all()
+        bed_map = {bed.id: bed for bed in beds}
+        old_bed, new_bed = bed_map.get(admission.bed_id), bed_map.get(payload.to_bed_id)
+        if old_bed is None or new_bed is None:
+            raise HTTPException(status_code=404, detail="Current or destination bed not found.")
+        if old_bed.id == new_bed.id:
+            raise HTTPException(status_code=400, detail="Destination bed must be different.")
+        ward = db.scalar(select(Ward).where(Ward.id == new_bed.ward_id, Ward.is_active.is_(True)))
+        if ward is None:
+            raise HTTPException(status_code=409, detail="Destination ward is inactive.")
+        if new_bed.status != "available":
+            raise HTTPException(status_code=409, detail="Destination bed is not available.")
+        new_bed.status = "occupied"
+        old_bed.status = "available"
+        admission.bed_id = new_bed.id
+        db.add(WardTransfer(
+            admission_id=admission.id,
+            from_bed_id=old_bed.id,
+            to_bed_id=new_bed.id,
+            requested_by=profile.id,
+            reason=payload.reason.strip() or None if payload.reason else None,
+            status="completed",
+        ))
+        _audit(db, profile, "admission.transferred", "admission", admission.id, {
+            "from_bed_id": str(old_bed.id), "to_bed_id": str(new_bed.id),
+        })
+        db.commit()
+        db.refresh(admission)
+        return admission
+    except HTTPException:
+        db.rollback()
+        raise
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Could not transfer admission.") from exc
 
 
 @router.post("/admissions/{admission_id}/discharge", response_model=AdmissionRead, summary="Discharge a patient")
@@ -179,11 +277,11 @@ def discharge_patient(
     db: Session = Depends(get_db),
 ) -> Admission:
     try:
-        admission = db.scalar(select(Admission).where(Admission.id == admission_id).with_for_update())
+        admission = db.scalar(select(Admission).where(
+            Admission.id == admission_id, Admission.status == "admitted"
+        ).with_for_update())
         if admission is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Admission not found.")
-        if admission.status != "admitted":
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Admission is not active.")
+            raise HTTPException(status_code=404, detail="Active admission not found.")
         if admission.bed_id:
             bed = db.scalar(select(Bed).where(Bed.id == admission.bed_id).with_for_update())
             if bed is not None:
@@ -191,7 +289,10 @@ def discharge_patient(
         admission.status = "discharged"
         admission.discharged_at = datetime.now(timezone.utc)
         admission.discharge_notes = payload.discharge_notes
-        _audit(db, profile, "admission.discharged", admission.id, {"bed_id": str(admission.bed_id) if admission.bed_id else None})
+        _audit(db, profile, "admission.discharged", "admission", admission.id, {
+            "patient_id": str(admission.patient_id),
+            "bed_id": str(admission.bed_id) if admission.bed_id else None,
+        })
         db.commit()
         db.refresh(admission)
         return admission
@@ -200,4 +301,4 @@ def discharge_patient(
         raise
     except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Could not discharge admission.") from exc
+        raise HTTPException(status_code=409, detail="Could not discharge admission.") from exc
