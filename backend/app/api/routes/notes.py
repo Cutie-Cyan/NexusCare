@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_roles
 from app.db.session import get_db
+from app.core.notifications import notify_roles
 from app.models import AuditLog, ConsultationNote, Encounter, NursingNote, Profile
 from app.schemas.notes import (
     ConsultationNoteCreate, ConsultationNoteRead, NursingNoteCreate, NursingNoteRead,
@@ -77,6 +78,9 @@ def create_consultation_note(
     db.add(note)
     db.flush()
     _audit(db, profile, "consultation_note.created", "consultation_note", note.id, encounter.id)
+    notify_roles(db, {"nurse"}, "Consultation note added",
+                 "A doctor added a note to an encounter. Review only if assigned and authorized.",
+                 "clinical", exclude_profile_id=profile.id)
     db.commit()
     db.refresh(note)
     return note
@@ -123,6 +127,9 @@ def create_nursing_note(
     db.add(note)
     db.flush()
     _audit(db, profile, "nursing_note.created", "nursing_note", note.id, encounter.id)
+    notify_roles(db, {"doctor"}, "Nursing note added",
+                 "A nurse added a note to an encounter. Review only if assigned and authorized.",
+                 "clinical", exclude_profile_id=profile.id)
     db.commit()
     db.refresh(note)
     return note
