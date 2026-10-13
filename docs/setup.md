@@ -15,19 +15,37 @@ git clone https://github.com/Cutie-Cyan/NexusCare.git
 cd NexusCare
 git fetch origin
 git switch develop
+git pull origin develop
 ```
 
 ## Frontend
+From the repository root:
+
 ```bash
 cd frontend
 bun install
 cp .env.example .env.local
+```
+
+Set the public project URL and publishable key in `frontend/.env.local`:
+
+```dotenv
+VITE_API_BASE_URL=http://127.0.0.1:8000/api/v1
+VITE_SUPABASE_URL=https://icahywfnfoeevsfdepca.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key
+```
+
+Only use the Supabase URL and publishable key in the browser. **Never put the database password, service-role key, or Supabase secret key in a `VITE_*` variable.** Restart Vite after changing environment variables.
+
+Start the frontend:
+
+```bash
 bun run dev
 ```
-Open the URL printed by Vite, normally http://localhost:5173.
 
 ## Backend
 Open a second terminal from the repository root:
+
 ```bash
 cd backend
 uv lock
@@ -38,12 +56,15 @@ cp .env.example .env
 Set `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `DATABASE_URL` in `backend/.env`. Use the URL and publishable key from the existing NexusCare project. Use the database URI from Supabase **Connect**, in SQLAlchemy format `postgresql+psycopg://...`; URL-encode special characters in the password if needed. Never commit `.env`.
 
 Run tests and start the API:
+
 ```bash
 uv run pytest
 uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
+
 - Health: http://127.0.0.1:8000/api/v1/health
-- API docs: http://127.0.0.1:8000/docs
+- Interactive API docs: http://127.0.0.1:8000/docs
+- Frontend: normally http://127.0.0.1:5173
 
 ## Database migration
 The initial schema in `backend/alembic/versions/20261010_0001_initial_schema.py` has already been applied to the connected NexusCare Supabase project through the Supabase migration integration. The migration appears in Supabase migration history and the expected 40 public tables exist with RLS enabled.
@@ -54,9 +75,11 @@ For a fresh development database, review the migration and target project carefu
 
 ## Fictional demo data
 After the database connection is configured and the migration baseline is confirmed, the seed command is:
+
 ```bash
 uv run python scripts/seed_demo.py
 ```
+
 This idempotently seeds role and department reference records, service/lab/medicine catalog items, 20 fictional patients, two wards, and 15 fictional beds. No real patient information should be used.
 
 Optional: create five fictional doctor accounts only if you intentionally want them in the Supabase Auth project. Set server-only `SUPABASE_SECRET_KEY` and a development-only `SEED_DOCTOR_PASSWORD` (at least 12 characters) in `backend/.env`, then run `uv run python scripts/seed_demo.py --create-auth-users`. Never use demo credentials in production.
@@ -66,9 +89,14 @@ Optional: create five fictional doctor accounts only if you intentionally want t
 - Phase 2: schema/migration foundation, Supabase Auth verification, RBAC dependency, fictional seed script.
 - Phase 3: patient registration, search, retrieval, demographic update, soft deactivation.
 - Phase 4: ward/bed management, admission, bed transfer, discharge, audit logging.
-- Phase 5: emergency-event registration/triage, clinical encounters, vital-sign observations, diagnoses, role checks, and audit events.
-- Phase 6: doctor-authored consultation notes and nurse-authored nursing notes, with immutable entries, role checks, and audit events.
-- Phase 7: laboratory catalog, test orders, specimen/processing status, result entry, independent verification/release, role checks, and audit events.
-- Not yet implemented: pharmacy, billing, inventory, appointments, notifications UI, analytics, and frontend integration.
+- Phase 5: emergency triage, clinical encounters, vital signs, diagnoses, and audit events.
+- Phase 6: append-only consultation and nursing notes.
+- Phase 7: lab catalog, orders, processing, results, independent verification/release.
+- Phase 8: medicine catalog/batches, prescriptions, safe dispensing, and pharmacy stock ledger.
+- Phase 9: bills, itemized charges, idempotent payment posting, receipts, and audited payment reversals.
+- Phase 10: inventory items/suppliers/movements, appointments, online-consultation records, notifications, settings, and summary reporting.
+- Phase 11: administrator audit-log search and documented RLS/RBAC security review.
+- Phase 12: frontend Supabase sign-in, authenticated FastAPI client, live patient list/registration, and API-driven summary dashboard. Other module pages remain UI placeholders while their backend APIs are available.
 
-**Security note:** direct SQLAlchemy access does not automatically enforce Supabase RLS based on the signed-in user. FastAPI role checks currently protect these routes, but staff access must be tightened to department/encounter-specific scopes before production. Do not use real patient data.
+## Security note
+Direct SQLAlchemy access does not automatically enforce Supabase RLS based on the signed-in user. FastAPI role checks currently protect these routes, but staff access must be tightened to department/encounter-specific scopes before production. See `docs/security-review.md`. Do not use real patient data.
