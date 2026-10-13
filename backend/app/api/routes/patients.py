@@ -146,6 +146,10 @@ def get_patient_history(
     prescription_rows = db.scalars(select(Prescription).where(
         Prescription.encounter_id.in_(encounter_ids)
     ).order_by(Prescription.created_at.desc())).all() if encounter_ids else []
+    prescription_ids = [row.id for row in prescription_rows]
+    prescription_items = db.scalars(select(PrescriptionItem).where(
+        PrescriptionItem.prescription_id.in_(prescription_ids)
+    )).all() if prescription_ids else []
     admissions = db.scalars(select(Admission).where(
         Admission.patient_id == patient.id
     ).order_by(Admission.admitted_at.desc())).all()
@@ -185,6 +189,12 @@ def get_patient_history(
             "id": str(row.id), "encounter_id": str(row.encounter_id),
             "status": row.status, "instructions": row.instructions,
             "created_at": row.created_at.isoformat() if row.created_at else None,
+            "items": [{
+                "medicine_id": str(item.medicine_id), "dose": item.dose,
+                "route": item.route, "frequency": item.frequency,
+                "duration": item.duration, "quantity": item.quantity,
+                "instructions": item.instructions,
+            } for item in prescription_items if item.prescription_id == row.id],
         } for row in prescription_rows],
         "admissions": [{
             "id": str(row.id), "status": row.status, "admission_type": row.admission_type,
