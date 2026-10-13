@@ -301,6 +301,60 @@ def receive_payment(
         raise HTTPException(status_code=409, detail="Payment conflicts with current bill state.") from exc
 
 
+
+@router.get("/payments", response_model=list[PaymentRead], summary="List authorized payment history")
+def list_all_payments(
+    payment_status: str | None = Query(default=None, alias="status", max_length=30),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    profile: Profile = Depends(get_current_profile),
+    db: Session = Depends(get_db),
+) -> list[Payment]:
+    roles = set(get_profile_roles(profile.id, db))
+    statement = select(Payment).join(Bill, Bill.id == Payment.bill_id)
+    if "patient" in roles and not roles.intersection(BILL_READ_ROLES):
+        patient_id = db.scalar(select(Patient.id).where(Patient.patient_profile_id == profile.id))
+        if patient_id is None:
+            return []
+        statement = statement.where(Bill.patient_id == patient_id)
+    elif not roles.intersection(BILL_READ_ROLES):
+        raise HTTPException(status_code=403, detail="Insufficient permissions.")
+    if payment_status:
+        if payment_status not in {"posted", "reversed"}:
+            raise HTTPException(status_code=422, detail="Unsupported payment status.")
+        statement = statement.where(Payment.status == payment_status)
+    return list(db.scalars(statement.order_by(Payment.received_at.desc()).offset(offset).limit(limit)).all())
+
+
+@router.get("/receipts", summary="List authorized receipt records")
+def list_receipts(
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    profile: Profile = Depends(get_current_profile),
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    roles = set(get_profile_roles(profile.id, db))
+    statement = select(Receipt, Payment, Bill).join(
+        Payment, Payment.id == Receipt.payment_id
+    ).join(Bill, Bill.id == Payment.bill_id)
+    if "patient" in roles and not roles.intersection(BILL_READ_ROLES):
+        patient_id = db.scalar(select(Patient.id).where(Patient.patient_profile_id == profile.id))
+        if patient_id is None:
+            return []
+        statement = statement.where(Bill.patient_id == patient_id)
+    elif not roles.intersection(BILL_READ_ROLES):
+        raise HTTPException(status_code=403, detail="Insufficient permissions.")
+    rows = db.execute(statement.order_by(Receipt.issued_at.desc()).offset(offset).limit(limit)).all()
+    return [{
+        "receipt_number": receipt.receipt_number,
+        "issued_at": receipt.issued_at.isoformat() if receipt.issued_at else None,
+        "payment_id": str(payment.id), "payment_amount": payment.amount,
+        "payment_method": payment.payment_method, "payment_status": payment.status,
+        "bill_id": str(bill.id), "bill_number": bill.bill_number,
+        "patient_id": str(bill.patient_id),
+    } for receipt, payment, bill in rows]
+
+
 @router.get("/bills/{bill_id}/payments", response_model=list[PaymentRead])
 def list_payments(
     bill_id: UUID,
