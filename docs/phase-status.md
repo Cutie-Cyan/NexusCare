@@ -15,7 +15,7 @@ This is the implementation tracker for the development phases. “Implemented”
 | 9 | Service fees, bill items, payment idempotency, receipts, audited reversals and service charges | Implemented |
 | 10 | Inventory, suppliers, procurement approvals/receiving, appointments, online consultation, notifications, settings, reports | Implemented at API level; core forms/screens are present |
 | 11 | Audit search, staff/role management, billing-aware discharge controls, security review | Implemented; comprehensive authorization integration testing remains |
-| 12 | Supabase login, API bearer client, role-aware navigation, dashboard, patient history, workflow pages | Implemented foundation; several non-patient lists remain read-only and need workflow-specific refinement |
+| 12 | Supabase login, API bearer client, role-aware navigation, dashboard/whiteboard, patient history/edit, workflow pages, receipts, admin reporting/settings | Implemented foundation; several non-patient lists remain read-only and need workflow-specific refinement |
 
 ## Remaining before capstone demonstration
 
@@ -23,7 +23,7 @@ This is the implementation tracker for the development phases. “Implemented”
 2. Reconcile Alembic's local version baseline safely before applying any future migration to the existing Supabase database.
 3. Pull the latest `develop` branch and run backend tests plus frontend production build on a machine with network access.
 4. Test every workflow using separate fictional accounts for all eight roles, including forbidden access and patient ownership checks.
-5. Refine remaining read-only tables into focused screens, including department administration and receipt/print views where required.
+5. Finish department edit/deactivation if required, then verify receipt detail/print output and refine remaining read-only module tables.
 6. Verify every cross-module flow end to end: registration → encounter → lab request → charge/payment eligibility → result release; prescription → dispensing → stock update → bill; stock threshold → procurement → approval → receiving; admission → bed occupancy → discharge/billing check; service → bill → payment → receipt.
 7. Complete clinical, privacy, security, backup/recovery, and deployment reviews before any use beyond a fictional capstone demo.
 
