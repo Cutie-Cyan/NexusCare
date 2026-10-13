@@ -8,6 +8,7 @@ import { LoginPage } from './pages/LoginPage.jsx'
 import { PatientsPage } from './pages/PatientsPage.jsx'
 import { StaffPage } from './pages/StaffPage.jsx'
 import { ProcurementPage } from './pages/ProcurementPage.jsx'
+import { AppointmentsPage } from './pages/AppointmentsPage.jsx'
 import { ServiceFeesPage } from './pages/ServiceFeesPage.jsx'
 import { PlaceholderPage } from './pages/PlaceholderPage.jsx'
 import { ApiListPage } from './pages/ApiListPage.jsx'
@@ -101,7 +102,7 @@ function AuthenticatedWorkspace() {
         <Route path="/" element={<DashboardPage roles={roles} />} />
         <Route path="/patients" element={canAccessPath(roles, '/patients') ? <PatientsPage roles={roles} /> : <Navigate to="/" replace />} />
         <Route path="/registration" element={canAccessPath(roles, '/registration') ? <Navigate to="/patients" replace /> : <Navigate to="/" replace />} />
-        {pages.map(([path, title, description]) => <Route key={path} path={path} element={canAccessPath(roles, path) ? (path === '/staff' ? <StaffPage /> : path === '/procurement' ? <ProcurementPage /> : path === '/service-fees' ? <ServiceFeesPage /> : apiEndpoints[path] ? <ApiListPage title={title} description={description} endpoint={apiEndpoints[path]} /> : <PlaceholderPage title={title} description={description} />) : <Navigate to="/" replace />} />)}
+        {pages.map(([path, title, description]) => <Route key={path} path={path} element={canAccessPath(roles, path) ? (path === '/staff' ? <StaffPage /> : path === '/procurement' ? <ProcurementPage /> : path === '/service-fees' ? <ServiceFeesPage /> : path === '/appointments' ? <AppointmentsPage roles={roles} /> : apiEndpoints[path] ? <ApiListPage title={title} description={description} endpoint={apiEndpoints[path]} /> : <PlaceholderPage title={title} description={description} />) : <Navigate to="/" replace />} />)}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppLayout>
