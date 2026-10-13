@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from './AuthProvider.jsx'
 import { DashboardPage } from './pages/DashboardPage.jsx'
 import { LoginPage } from './pages/LoginPage.jsx'
 import { PatientsPage } from './pages/PatientsPage.jsx'
+import { StaffPage } from './pages/StaffPage.jsx'
 import { PlaceholderPage } from './pages/PlaceholderPage.jsx'
 import { ApiListPage } from './pages/ApiListPage.jsx'
 import { apiRequest } from './lib/api.js'
@@ -27,7 +28,7 @@ const pages = [
   ['/billing', 'Billing', 'Itemized bills, service fees, automatic laboratory/pharmacy/professional-fee charges, and balance APIs are available.'],
   ['/payments', 'Payments', 'Idempotent payment posting and administrator-only audited payment reversals are available.'],
   ['/receipts', 'Receipts', 'Receipt records are created with successful payment postings and can be retrieved by receipt number.'],
-  ['/staff', 'Staff & Accounts', 'Supabase Auth and role checks are active. Staff account provisioning still requires administrator setup and server-only credentials.'],
+  ['/staff', 'Staff & Accounts', 'Create Supabase Auth accounts, assign roles, and manage active staff profiles.'],
   ['/departments', 'Departments', 'Department records support ward, encounter, and appointment workflows. Department administration UI remains in progress.'],
   ['/service-fees', 'Service Fees', 'Administrator-only service-fee creation and updates are available through the API.'],
   ['/reports', 'Reports & Analytics', 'The reporting API exposes authorized operational summary metrics.'],
@@ -98,7 +99,7 @@ function AuthenticatedWorkspace() {
         <Route path="/" element={<DashboardPage roles={roles} />} />
         <Route path="/patients" element={canAccessPath(roles, '/patients') ? <PatientsPage roles={roles} /> : <Navigate to="/" replace />} />
         <Route path="/registration" element={canAccessPath(roles, '/registration') ? <Navigate to="/patients" replace /> : <Navigate to="/" replace />} />
-        {pages.map(([path, title, description]) => <Route key={path} path={path} element={canAccessPath(roles, path) ? (apiEndpoints[path] ? <ApiListPage title={title} description={description} endpoint={apiEndpoints[path]} /> : <PlaceholderPage title={title} description={description} />) : <Navigate to="/" replace />} />)}
+        {pages.map(([path, title, description]) => <Route key={path} path={path} element={canAccessPath(roles, path) ? (path === '/staff' ? <StaffPage /> : apiEndpoints[path] ? <ApiListPage title={title} description={description} endpoint={apiEndpoints[path]} /> : <PlaceholderPage title={title} description={description} />) : <Navigate to="/" replace />} />)}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppLayout>
