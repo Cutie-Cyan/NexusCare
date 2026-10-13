@@ -235,6 +235,11 @@ class OnlineConsultationCreate(BaseModel):
     meeting_url: str | None = Field(default=None, max_length=2000)
 
 
+class OnlineConsultationUpdate(BaseModel):
+    status: Literal["scheduled", "in_progress", "completed", "cancelled"]
+    meeting_url: str | None = Field(default=None, max_length=2000)
+
+
 class OnlineConsultationRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
