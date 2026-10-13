@@ -25,7 +25,7 @@ The FastAPI backend connects to Postgres using its own database credentials. SQL
 
 ## Known gaps before any real-world use
 - Some clinical and operational staff endpoints still have broad role-level access rather than assignment-, department-, encounter-, or care-team-specific scope.
-- The frontend has operational forms for the major clinical, admissions, pharmacy, laboratory, procurement, billing, and appointment workflows. Reports, audit search, and system settings have dedicated views; department listing and receipt review still need further workflow refinement.
+- The frontend has operational forms for the major clinical, admissions, pharmacy, laboratory, procurement, billing, and appointment workflows. Reports, audit search, system settings, department listing/creation, and receipt search/detail/print views are present; department edit/deactivation and end-to-end receipt print validation remain.
 - Staff provisioning is administrator-only and requires the server-only Supabase secret key. A first administrator must be bootstrapped manually before that endpoint can be used.
 - The whiteboard shows aggregate counts only and intentionally excludes patient names.
 - The procurement extension adds three RLS-enabled tables with no browser Data API policies; this is default-deny and intentional.
