@@ -16,6 +16,7 @@ from app.models import (
 )
 from app.schemas.operations import (
     AppointmentCreate, AppointmentRead, AppointmentStatusUpdate,
+    DoctorScheduleCreate, DoctorScheduleRead,
     InventoryItemCreate, InventoryItemRead, InventoryItemTransactionRead,
     InventoryMovementCreate, NotificationCreate, NotificationRead,
     OnlineConsultationCreate, OnlineConsultationRead, SupplierCreate,
@@ -333,6 +334,40 @@ def mark_notification_read(
         db.commit()
         db.refresh(notification)
     return notification
+
+
+@router.post("/doctor-schedules", response_model=DoctorScheduleRead, status_code=status.HTTP_201_CREATED)
+def create_doctor_schedule(
+    payload: DoctorScheduleCreate,
+    profile: Profile = Depends(require_roles("administrator")),
+    db: Session = Depends(get_db),
+) -> DoctorSchedule:
+    doctor = db.scalar(select(Profile).where(Profile.id == payload.doctor_id, Profile.is_active.is_(True)))
+    if doctor is None or "doctor" not in _roles(doctor, db):
+        raise HTTPException(status_code=422, detail="Schedule owner must be an active doctor profile.")
+    if payload.department_id and db.scalar(select(Department.id).where(
+        Department.id == payload.department_id, Department.is_active.is_(True)
+    )) is None:
+        raise HTTPException(status_code=422, detail="Active department not found.")
+    overlap = db.scalar(select(DoctorSchedule.id).where(
+        DoctorSchedule.doctor_id == payload.doctor_id,
+        DoctorSchedule.weekday == payload.weekday,
+        DoctorSchedule.is_active.is_(True),
+        DoctorSchedule.start_time < payload.end_time,
+        DoctorSchedule.end_time > payload.start_time,
+    ).limit(1))
+    if overlap:
+        raise HTTPException(status_code=409, detail="Doctor schedule overlaps an existing active schedule.")
+    schedule = DoctorSchedule(**payload.model_dump())
+    db.add(schedule)
+    db.flush()
+    _audit(db, profile, "doctor_schedule.created", "doctor_schedule", schedule.id, {
+        "doctor_id": str(schedule.doctor_id), "weekday": schedule.weekday,
+        "start_time": schedule.start_time, "end_time": schedule.end_time,
+    })
+    db.commit()
+    db.refresh(schedule)
+    return schedule
 
 
 @router.get("/doctor-schedules")
