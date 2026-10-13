@@ -271,6 +271,42 @@ def list_payments(
     return list(db.scalars(select(Payment).where(Payment.bill_id == bill_id).order_by(Payment.received_at.desc())).all())
 
 
+@router.get("/receipts/{receipt_number}", summary="Retrieve a payment receipt")
+def get_receipt(
+    receipt_number: str,
+    profile: Profile = Depends(get_current_profile),
+    db: Session = Depends(get_db),
+) -> dict:
+    roles = set(get_profile_roles(profile.id, db))
+    row = db.execute(
+        select(Receipt, Payment, Bill)
+        .join(Payment, Payment.id == Receipt.payment_id)
+        .join(Bill, Bill.id == Payment.bill_id)
+        .where(Receipt.receipt_number == receipt_number)
+    ).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Receipt not found.")
+    receipt, payment, bill = row
+    if "patient" in roles and not roles.intersection(BILL_READ_ROLES):
+        patient_id = db.scalar(select(Patient.id).where(Patient.patient_profile_id == profile.id))
+        if patient_id != bill.patient_id:
+            raise HTTPException(status_code=404, detail="Receipt not found.")
+    elif not roles.intersection(BILL_READ_ROLES):
+        raise HTTPException(status_code=403, detail="Insufficient permissions.")
+    return {
+        "receipt_number": receipt.receipt_number,
+        "issued_at": receipt.issued_at.isoformat() if receipt.issued_at else None,
+        "issued_by": str(receipt.issued_by) if receipt.issued_by else None,
+        "payment_id": str(payment.id),
+        "payment_amount": payment.amount,
+        "payment_method": payment.payment_method,
+        "payment_status": payment.status,
+        "bill_id": str(bill.id),
+        "bill_number": bill.bill_number,
+        "patient_id": str(bill.patient_id),
+    }
+
+
 @router.post("/payments/{payment_id}/reverse", response_model=PaymentRead)
 def reverse_payment(
     payment_id: UUID,
