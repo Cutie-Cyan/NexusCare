@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_profile, get_profile_roles, require_roles
 from app.db.session import get_db
+from app.core.billing import add_service_charge
+from app.core.notifications import notify_roles
 from app.models import (
     AuditLog, Encounter, InventoryTransaction, Medicine, MedicineBatch,
     PharmacyDispensing, Prescription, PrescriptionItem, Profile,
@@ -174,6 +176,8 @@ def create_prescription(
     _audit(db, profile, "prescription.issued", "prescription", prescription.id, {
         "encounter_id": str(encounter.id), "item_count": len(payload.items),
     })
+    notify_roles(db, {"pharmacy_staff"}, "New prescription",
+                 "A doctor issued a prescription that is ready for pharmacy review.", "pharmacy")
     db.commit()
     db.refresh(prescription)
     return prescription
@@ -269,10 +273,22 @@ def dispense_prescription_item(
         }
         totals[item.id] = new_total
         prescription.status = "dispensed" if all(totals[row.id] >= row.quantity for row in all_items) else "partially_dispensed"
+        encounter = db.scalar(select(Encounter).where(Encounter.id == prescription.encounter_id))
+        medicine = db.scalar(select(Medicine).where(Medicine.id == item.medicine_id))
+        if encounter is not None and medicine is not None and batch.selling_price > 0:
+            add_service_charge(
+                db, encounter.patient_id, encounter.id,
+                f"Pharmacy dispensing {dispensing.id}: {medicine.name}",
+                batch.selling_price, payload.quantity,
+            )
         _audit(db, profile, "prescription_item.dispensed", "pharmacy_dispensing", dispensing.id, {
             "prescription_id": str(prescription.id), "batch_id": str(batch.id),
             "quantity": payload.quantity, "remaining_after": remaining - payload.quantity,
         })
+        notify_roles(db, {"cashier"}, "Pharmacy charge added",
+                     "A medicine dispensing transaction added a charge to the patient bill.", "billing")
+        notify_roles(db, {"administrator", "pharmacy_staff"}, "Medicine dispensed",
+                     "A prescription item was dispensed and pharmacy stock was updated.", "pharmacy", exclude_profile_id=profile.id)
         db.commit()
         db.refresh(dispensing)
         return dispensing
