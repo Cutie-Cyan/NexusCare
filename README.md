@@ -4,11 +4,11 @@
 
 NexusCare is a capstone project integrating patient information, clinical services, hospital resources, billing, pharmacy, laboratory services, and administration.
 
-## Current status — Phase 2 foundation
+## Current status — Phase 4 API foundation
 
-The repository includes the Phase 1 React/Vite starter interface and FastAPI health endpoint, plus Phase 2 SQLAlchemy models, an initial Alembic schema migration, Supabase Auth token verification, database-backed role checks, RLS policies, and repeatable fictional reference/patient seed data.
+The repository includes the React/Vite starter interface, SQLAlchemy models and initial Alembic schema, Supabase Auth token verification, database-backed role checks, fictional seed data, patient CRUD, and an initial admissions/bed-management API.
 
-**Not yet complete:** patient CRUD, admissions, consultations, nursing, emergency, laboratory, pharmacy, billing, inventory, appointments, and end-to-end workflows. The existing UI pages are still placeholders. The project has not been confirmed running against your Supabase database, and the migration has not been applied automatically.
+**Not yet complete:** ward transfers, clinical encounters/consultations, nursing, emergency, laboratory, pharmacy, billing, inventory, appointments, and end-to-end workflows. The UI pages are still placeholders. GitHub Actions checks run in CI, but the project has not been verified against your actual Supabase database, and the migration has not been applied automatically.
 
 ## Stack
 
