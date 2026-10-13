@@ -21,7 +21,7 @@ from app.schemas.clinical import (
 router = APIRouter(tags=["clinical encounters and emergency"])
 
 CLINICAL_READ_ROLES = {"administrator", "information_officer", "doctor", "nurse"}
-CLINICAL_WRITE_ROLES = ("administrator", "doctor", "nurse")
+CLINICAL_WRITE_ROLES = ("doctor", "nurse")
 ENCOUNTER_CREATE_ROLES = ("administrator", "information_officer", "doctor", "nurse")
 EMERGENCY_CREATE_ROLES = ("administrator", "information_officer", "doctor", "nurse")
 
@@ -254,7 +254,7 @@ def list_diagnoses(
 def create_diagnosis(
     encounter_id: UUID,
     payload: DiagnosisCreate,
-    profile: Profile = Depends(require_roles("administrator", "doctor")),
+    profile: Profile = Depends(require_roles("doctor")),
     db: Session = Depends(get_db),
 ) -> Diagnosis:
     encounter = _get_encounter_or_404(db, encounter_id)
@@ -369,7 +369,7 @@ def create_emergency_event(
 def update_emergency_triage(
     event_id: UUID,
     payload: EmergencyTriageUpdate,
-    profile: Profile = Depends(require_roles("administrator", "doctor", "nurse")),
+    profile: Profile = Depends(require_roles("doctor", "nurse")),
     db: Session = Depends(get_db),
 ) -> EmergencyEvent:
     event = db.scalar(select(EmergencyEvent).where(
