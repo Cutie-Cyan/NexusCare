@@ -26,6 +26,11 @@ class PatientCreate(BaseModel):
         value = value.strip()
         if not value:
             raise ValueError("This field cannot be blank.")
+        return value
+
+    @field_validator("medical_record_number")
+    @classmethod
+    def validate_medical_record_number(cls, value: str) -> str:
         if not re.fullmatch(r"[A-Za-z0-9_-]+", value):
             raise ValueError("Use only letters, numbers, hyphens, and underscores.")
         return value
