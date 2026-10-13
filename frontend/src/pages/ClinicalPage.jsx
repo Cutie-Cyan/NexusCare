@@ -50,7 +50,7 @@ export function ClinicalPage({ roles = [], nursingOnly = false }) {
     onError: err => setError(err.message),
   })
   const addNote = useMutation({
-    mutationFn: () => apiRequest('/encounters/' + selectedEncounterId + (nursingOnly ? '/nursing-notes' : '/consultation-notes'), { method: 'POST', body: { note_type: note.note_type, content: note.content } }),
+    mutationFn: () => apiRequest('/encounters/' + selectedEncounterId + (nursingOnly ? '/nursing-notes' : '/consultation-notes'), { method: 'POST', body: nursingOnly ? { content: note.content } : { note_type: note.note_type, content: note.content } }),
     onSuccess: () => { setNote({ note_type: nursingOnly ? 'assessment' : 'progress', content: '' }); setError(''); client.invalidateQueries({ queryKey: ['encounter-detail', selectedEncounterId, nursingOnly ? 'nursing-notes' : 'consultation-notes'] }) },
     onError: err => setError(err.message),
   })
