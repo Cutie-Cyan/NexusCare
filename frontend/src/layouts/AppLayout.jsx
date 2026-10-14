@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Menu, Moon, Sun, Bell, Search, HeartPulse, LogOut, CheckCheck } from 'lucide-react'
+import { Menu, Moon, Sun, Bell, HeartPulse, LogOut, CheckCheck } from 'lucide-react'
 import { Sidebar } from '../components/navigation/Sidebar.jsx'
 import { apiRequest } from '../lib/api.js'
 
@@ -45,15 +45,13 @@ export function AppLayout({ children, theme, onToggleTheme, userEmail, onSignOut
         <button className="icon-button mobile-menu-button" aria-label="Open navigation" onClick={() => setMobileOpen(true)}><Menu size={19}/></button>
         <div className="breadcrumb"><span>Workspace</span><span>/</span><strong>NexusCare</strong></div>
         <div className="topbar-actions">
-          <div className="environment-pill"><span className="status-dot"/> Local development</div>
-          <button className="icon-button search-button" aria-label="Search is not active yet" title="Search is not active yet"><Search size={17}/></button>
           <NotificationCenter/>
           <button className="icon-button" aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} onClick={onToggleTheme}>{theme === 'dark' ? <Sun size={17}/> : <Moon size={17}/>}</button>
           <button className="icon-button" aria-label="Sign out" title={userEmail || 'Sign out'} onClick={onSignOut}><LogOut size={17}/></button>
         </div>
       </header>
       <main className="main-content">{children}</main>
-      <footer className="app-footer"><span><HeartPulse size={14}/> NexusCare</span><span>Authenticated workspace · API integration</span></footer>
+      <footer className="app-footer"><span><HeartPulse size={14}/> NexusCare</span></footer>
     </div>
   </div>
 }
