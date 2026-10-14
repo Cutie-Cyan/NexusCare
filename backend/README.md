@@ -19,7 +19,7 @@ uv sync
 cp .env.example .env
 ```
 
-Set `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `DATABASE_URL` in `.env`. Use the existing NexusCare Supabase project. Never commit `.env`.
+Set `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, and `DATABASE_URL` in `.env`. `SUPABASE_SECRET_KEY` is required for private server-side document storage; it must never be placed in the frontend. Use the existing NexusCare Supabase project. Never commit `.env`.
 
 Run tests and start the API:
 
@@ -39,7 +39,9 @@ API docs: http://127.0.0.1:8000/docs
 - **Consultation/nursing:** append-only consultation and nursing notes per encounter.
 - **Laboratory:** test catalog, lab orders, automatic bill charges, payment or cashier/administrator-authorized billing arrangement before processing, result entry, and independent result verification/release.
 - **Pharmacy:** `GET/POST /api/v1/medicines`, `GET/POST /api/v1/medicine-batches`, `GET /api/v1/pharmacy/stock`, `POST /api/v1/prescriptions`, prescription listing/items, and `POST /api/v1/prescription-items/{id}/dispense`. Dispensing locks stock rows, rejects expired/mismatched batches and prevents dispensing more than prescribed.
-- **Billing/payments:** service-fee administration, automatic professional/laboratory/pharmacy charges, bill creation/items/balance, payment listing/posting, receipt history, and administrator-only payment reversal. Payments require an `Idempotency-Key`; posted payments are reversed with an audit record rather than deleted.
+- **Billing/payments:** service-fee administration with price history, automatic professional/laboratory/pharmacy charges, bill creation/items/balance, payment listing/posting, receipt history, and administrator-only payment reversal. Payments require an `Idempotency-Key`; posted payments are reversed with an audit record rather than deleted.
+- **Patient documents:** `POST /api/v1/patients/{patient_id}/documents` accepts PDF/JPEG/PNG up to 10 MB into a private Supabase Storage bucket; staff can list documents, generate 60-second signed links, and administrators/cashiers can approve or reject verification.
+- **Finance extensions:** discount applications and review, non-binding benefit estimates, CSV bill/payment exports, export audit records. CSV exports are role-restricted and capped at 5,000 rows.
 - **Inventory/procurement:** suppliers, inventory items/movements, low-stock alerts, procurement request submission/approval, receiving records, and automatic stock ledger updates. Stock changes are row-locked and cannot make quantities negative.
 - **Appointments/online consultation:** patient-owned appointment requests/cancellation, clinician schedule management, online consultation request/lifecycle/history.
 - **Notifications/settings/reports:** workflow-generated role notifications, per-profile unread/read status, privacy-conscious whiteboard summary, administrator-only system settings, and role-restricted operational reports.
