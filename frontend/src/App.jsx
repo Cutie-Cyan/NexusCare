@@ -86,7 +86,7 @@ function ProfileIncomplete({ onSignOut }) {
 function AuthenticatedWorkspace() {
   const { session, loading, configured, signOut } = useAuth()
   const [theme, setTheme] = useState(() => {
-    try { return localStorage.getItem('nexuscare-theme') || 'light' } catch { return 'light' }
+    try { return localStorage.getItem('nexuscare-theme-v2') || 'light' } catch { return 'light' }
   })
   const identity = useQuery({
     queryKey: ['identity', session?.user?.id],
@@ -98,7 +98,7 @@ function AuthenticatedWorkspace() {
   function toggleTheme() {
     setTheme(current => {
       const next = current === 'dark' ? 'light' : 'dark'
-      try { localStorage.setItem('nexuscare-theme', next) } catch {}
+      try { localStorage.setItem('nexuscare-theme-v2', next) } catch {}
       return next
     })
   }
