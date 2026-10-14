@@ -4,6 +4,7 @@ import csv
 import io
 import re
 from datetime import datetime, timezone
+from decimal import Decimal
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
@@ -12,7 +13,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from supabase import create_client
 
-from app.api.deps import get_profile_roles, require_roles
+from app.api.deps import require_roles
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.models import AuditLog, Profile
@@ -184,10 +185,10 @@ def export_bills_csv(
     writer.writerow(["bill_number", "patient_id", "medical_record_number", "first_name", "last_name",
                      "status", "subtotal", "adjustments", "total", "paid", "balance", "created_at"])
     for row in rows:
-        total, paid = float(row["total"] or 0), float(row["paid"] or 0)
+        total, paid = Decimal(str(row["total"] or 0)), Decimal(str(row["paid"] or 0))
         writer.writerow([row["bill_number"], row["patient_id"], row["medical_record_number"],
                          row["first_name"], row["last_name"], row["status"], row["subtotal"],
-                         row["adjustments"], row["total"], row["paid"], f"{max(0, total-paid):.2f}",
+                         row["adjustments"], row["total"], row["paid"], f"{max(Decimal("0.00"), total-paid):.2f}",
                          row["created_at"].isoformat() if row["created_at"] else ""])
     db.add(AuditLog(actor_profile_id=profile.id, action="data.exported", resource_type="bills",
                     resource_id="csv", details={"row_count": len(rows), "status": bill_status}))
