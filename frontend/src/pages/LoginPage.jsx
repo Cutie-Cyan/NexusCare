@@ -26,6 +26,5 @@ export function LoginPage() {
       {error && <p className="form-error" role="alert">{error}</p>}<button className="primary-button" type="submit" disabled={submitting}>{submitting ? 'Signing in…' : 'Sign in'}</button>
     </form>}
     <div className="auth-security"><ShieldCheck size={16}/><span>Protected by Supabase Auth and server-side role checks.</span></div>
-    <p className="auth-disclaimer">Development system only. Do not enter real patient information until security and clinical workflows have been reviewed.</p>
   </section></main>
 }
