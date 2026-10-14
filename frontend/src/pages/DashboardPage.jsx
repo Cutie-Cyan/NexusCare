@@ -30,11 +30,10 @@ export function DashboardPage({ roles = [] }) {
   })
   const data = query.data
   const metrics = financeAccess ? financialMetrics : operationsMetrics
-  return <section className="page-wrap"><div className="page-heading"><div><div className="eyebrow">NEXUSCARE WORKSPACE</div><h1>Dashboard</h1><p className="page-description">Role-appropriate operational information from the authenticated NexusCare API.</p></div><span className="phase-tag">Live API · 30s refresh</span></div>
+  return <section className="page-wrap"><div className="page-heading"><div><div className="eyebrow">NEXUSCARE WORKSPACE</div><h1>Dashboard</h1><p className="page-description">Role-appropriate operational information from the authenticated NexusCare API.</p></div></div>
     {query.isPending ? <div className="empty-state">Loading dashboard summary…</div>
       : query.isError ? <div className="error-panel"><strong>Dashboard data unavailable</strong><p>{query.error.message}</p><p>Your account may not have permission to view this summary, or the backend may be unavailable.</p></div>
       : patientAccess ? <div className="metric-grid"><article className="metric-card"><div className="metric-icon"><CalendarDays size={18}/></div><span>Your appointments</span><strong>{(data || []).length}</strong></article></div>
       : <div className="metric-grid">{metrics.map(([key, label, Icon]) => <article className="metric-card" key={key}><div className="metric-icon"><Icon size={18}/></div><span>{label}</span><strong>{key === 'posted_payments_total' ? new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(Number(data[key] || 0)) : Number(data[key] || 0).toLocaleString()}</strong></article>)}</div>}
-    <div className="disclaimer">Development environment · Use fictional demo data only. Dashboard values reflect the current API response, not independently audited financial reporting.</div>
   </section>
 }
