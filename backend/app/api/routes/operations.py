@@ -599,6 +599,12 @@ def list_online_consultations(
         statement = statement.where(Appointment.patient_id == own_patient_id)
     elif not roles.intersection(APPOINTMENT_READ_ROLES | {"patient"}):
         raise HTTPException(status_code=403, detail="Insufficient permissions.")
+    elif not roles.intersection({"administrator", "information_officer"}):
+        from sqlalchemy import or_
+        scope_conditions = [Appointment.clinician_id == profile.id]
+        if profile.department_id is not None:
+            scope_conditions.append(Appointment.department_id == profile.department_id)
+        statement = statement.where(or_(*scope_conditions))
     if consultation_status:
         if consultation_status not in {"requested", "scheduled", "in_progress", "completed", "cancelled"}:
             raise HTTPException(status_code=422, detail="Unsupported online consultation status.")
@@ -622,6 +628,8 @@ def request_online_consultation(
             raise HTTPException(status_code=404, detail="Appointment not found.")
     elif not roles.intersection(set(APPOINTMENT_CREATE_ROLES)):
         raise HTTPException(status_code=403, detail="Insufficient permissions.")
+    else:
+        _ensure_appointment_scope(profile, appointment, roles)
     if appointment.status not in {"scheduled", "confirmed"}:
         raise HTTPException(status_code=409, detail="Only scheduled or confirmed appointments can request an online consultation.")
     if db.scalar(select(OnlineConsultation.id).where(OnlineConsultation.appointment_id == appointment.id)):
@@ -651,6 +659,13 @@ def update_online_consultation(
     ).with_for_update())
     if consultation is None:
         raise HTTPException(status_code=404, detail="Online consultation not found.")
+    appointment = db.scalar(select(Appointment).where(Appointment.id == consultation.appointment_id))
+    if appointment is None:
+        raise HTTPException(status_code=404, detail="Appointment not found.")
+    roles = _roles(profile, db)
+    _ensure_appointment_scope(profile, appointment, roles)
+    if "doctor" in roles and "administrator" not in roles and appointment.clinician_id != profile.id:
+        raise HTTPException(status_code=403, detail="Only the assigned clinician may update this online consultation.")
     if consultation.status in {"completed", "cancelled"}:
         raise HTTPException(status_code=409, detail="Closed online consultations cannot be changed.")
     if payload.status == "in_progress" and consultation.status not in {"requested", "scheduled"}:
