@@ -12,12 +12,20 @@ export async function apiRequest(path, options = {}) {
   const token = data.session?.access_token
   if (!token) throw new Error('Your session has expired. Please sign in again.')
 
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData
+  const requestBody = options.body != null
+    && typeof options.body !== 'string'
+    && !isFormData
+    ? JSON.stringify(options.body)
+    : options.body
+
   const response = await fetch(API_BASE_URL + (path.startsWith('/') ? path : '/' + path), {
     ...options,
+    body: requestBody,
     headers: {
       Accept: 'application/json',
       Authorization: 'Bearer ' + token,
-      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(options.body != null && !isFormData ? { 'Content-Type': 'application/json' } : {}),
       ...options.headers,
     },
   })
@@ -26,7 +34,15 @@ export async function apiRequest(path, options = {}) {
   const payload = await response.json().catch(() => null)
   if (!response.ok) {
     const detail = payload?.detail
-    throw new Error(typeof detail === 'string' ? detail : 'Request failed with status ' + response.status + '.')
+    if (typeof detail === 'string') throw new Error(detail)
+    if (Array.isArray(detail)) {
+      const messages = detail.map(item => {
+        const location = Array.isArray(item.loc) ? item.loc.filter(part => part !== 'body').join('.') : ''
+        return location ? location + ': ' + item.msg : item.msg
+      }).filter(Boolean)
+      throw new Error(messages.join('; ') || 'Request failed with status ' + response.status + '.')
+    }
+    throw new Error('Request failed with status ' + response.status + '.')
   }
   return payload
 }
