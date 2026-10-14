@@ -154,3 +154,151 @@ h1 { font-size: clamp(28px, 2.5vw, 36px); line-height: 1.2; letter-spacing: -0.9
   .breadcrumb { font-size: 12px; }
   .app-footer { flex-direction: column; }
 }
+
+
+/* NexusCare readability and accessibility refresh */
+:root{font-size:16px}
+body{font-size:15px;line-height:1.55}
+button,input,select,textarea{font:inherit}
+.sidebar{width:72px}
+.brand-row{height:72px;min-height:72px;padding-inline:20px;gap:13px}
+.brand-mark{width:34px;height:34px;flex-basis:34px;border-radius:9px}
+.brand-mark svg{width:21px;height:21px}
+@media(hover:hover) and (pointer:fine){.sidebar:hover,.sidebar:focus-within{width:264px}}
+.workspace-switcher{height:58px;min-height:58px;margin:14px 8px 9px;padding-inline:11px}
+.workspace-icon{width:30px;height:30px;flex-basis:30px;font-size:14px}
+.sidebar-nav{padding-inline:8px}
+.nav-group{padding-top:10px}
+.nav-group-label{height:30px;padding:8px 12px 0;font-size:11px;letter-spacing:1px}
+.nav-link{height:44px;gap:14px;padding-inline:16px;margin-block:3px;border-radius:7px}
+.nav-icon{flex-basis:22px;width:22px;height:22px}
+.nav-icon svg,.nav-link>svg{width:21px;height:21px}
+.nav-label{font-size:14px;font-weight:500}
+.brand-copy strong{font-size:16px}
+.brand-copy span{font-size:10px}
+.workspace-copy strong,.profile-copy strong{font-size:13px}
+.workspace-copy span,.profile-copy span{font-size:11px}
+.profile-row{height:50px}
+.profile-avatar{width:32px;height:32px}
+.main-column{margin-left:72px}
+.topbar{height:64px;padding-inline:30px}
+.breadcrumb{font-size:14px;gap:12px}
+.topbar-actions{gap:10px}
+.icon-button{width:40px;height:40px;border-radius:8px}
+.icon-button svg{width:21px;height:21px}
+.environment-pill{padding:7px 10px;font-size:12px}
+.user-avatar{width:34px;height:34px;font-size:12px}
+.main-content{padding:36px 38px 42px}
+.page-heading{margin-bottom:32px;gap:24px}
+.eyebrow{font-size:11px;letter-spacing:1.5px;margin-bottom:10px}
+h1{font-size:clamp(28px,2.5vw,36px);line-height:1.2;letter-spacing:-.7px}
+.page-description{font-size:15px;line-height:1.7;max-width:760px}
+.phase-tag{padding:7px 10px;font-size:12px}
+.starter-panel{gap:18px;padding:26px;border-radius:10px}
+.panel-icon{width:44px;height:44px;flex-basis:44px;border-radius:9px}
+.panel-icon svg{width:23px;height:23px}
+.panel-copy h2{font-size:18px}
+.panel-copy p{font-size:14px;line-height:1.8}
+.panel-meta{font-size:12px;margin-top:20px}
+.section-heading{margin:36px 0 16px}
+.section-heading h2{font-size:17px}
+.section-heading>span{font-size:11px}
+.notes-grid{gap:16px}
+.note-card{padding:21px;border-radius:9px}
+.note-number{font-size:12px}
+.note-card h3{font-size:15px;margin:14px 0 9px}
+.note-card p{font-size:14px;line-height:1.75}
+.disclaimer{font-size:12px;padding:14px;line-height:1.7}
+.app-footer{padding:18px 38px;font-size:12px}
+.auth-card{width:min(100%,520px);padding:36px;border-radius:14px}
+.auth-brand>span{width:48px;height:48px}
+.auth-brand strong{font-size:20px}
+.auth-brand small{font-size:11px}
+.auth-card h1{font-size:30px;line-height:1.25}
+.auth-description{font-size:15px;line-height:1.75}
+.auth-form label,.data-form label{font-size:14px}
+.auth-form input,.data-form input,.data-form select,.data-form textarea,.auth-form select{padding:13px 14px;font-size:15px;min-height:46px}
+.primary-button{padding:12px 17px;font-size:14px;min-height:44px;border-radius:8px}
+.auth-form .primary-button{min-height:48px}
+.auth-security{font-size:12px}
+.auth-disclaimer{font-size:12px;line-height:1.7}
+.auth-notice{font-size:14px;padding:16px}
+.auth-notice code{font-size:12px}
+.data-form{padding:24px;border-radius:10px}
+.data-form h2{font-size:19px;margin-bottom:20px}
+.form-grid{gap:18px;margin-bottom:20px}
+.table-toolbar{font-size:13px;margin:26px 0 14px}
+.search-field{border-radius:8px;padding-left:12px}
+.search-field>svg{width:20px;height:20px}
+.search-field input{font-size:14px;min-height:44px}
+.data-table{font-size:14px}
+.data-table th,.data-table td{padding:15px 18px}
+.data-table th{font-size:12px}
+.empty-state,.error-panel{padding:44px 22px;font-size:14px;line-height:1.65}
+.empty-state svg,.error-panel svg{width:26px;height:26px}
+.metric-grid{gap:16px}
+.metric-card{min-height:150px;padding:21px;border-radius:9px;gap:13px}
+.metric-icon{width:40px;height:40px;border-radius:8px}
+.metric-icon svg{width:22px;height:22px}
+.metric-card>span{font-size:14px}
+.metric-card>strong{font-size:30px}
+.metric-card small{font-size:12px;line-height:1.5}
+.notification-panel-heading{padding:16px;font-size:14px}
+.notification-panel-heading span,.notification-message{font-size:13px}
+.notification-item{padding:15px}
+.notification-item-copy strong{font-size:13px}
+.notification-item-copy span{font-size:13px}
+.notification-item-copy small{font-size:11px}
+.role-picker>strong{font-size:14px}
+.role-picker label{padding:11px;font-size:13px}
+.security-warning{font-size:12px}
+.row-actions{gap:9px}
+.inline-edit input{font-size:13px;padding:8px 10px}
+.result-summary{font-size:13px;padding:16px}
+.result-summary span{font-size:12px}
+.muted-small,.history-section>p{font-size:12px;line-height:1.6}
+.triage-label{font-size:11px;padding:5px 9px}
+.ward-card{padding:20px;border-radius:10px}
+.ward-card-heading h2{font-size:19px}
+.ward-card-heading p,.ward-occupancy{font-size:13px}
+.occupancy-track{height:8px}
+.bed-grid{grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:9px}
+.bed-chip{padding:10px;font-size:12px}
+.bed-chip small{font-size:11px}
+.receipt-brand h2{font-size:21px}
+.receipt-brand p{font-size:13px}
+.receipt-detail-grid span{font-size:12px}
+.receipt-detail-grid strong{font-size:14px}
+.receipt-total{padding:19px}
+.receipt-total span{font-size:14px}
+.receipt-total strong{font-size:28px}
+@media(max-width:720px){
+ .sidebar{width:270px}
+ .main-column{margin-left:0}
+ .topbar{height:60px;padding-inline:14px}
+ .breadcrumb{font-size:13px}
+ .icon-button{width:38px;height:38px}
+ .main-content{padding:25px 16px 30px}
+ .page-heading{gap:12px;margin-bottom:24px}
+ h1{font-size:28px}
+ .page-description{font-size:14px}
+ .notes-grid{grid-template-columns:1fr}
+ .note-card{padding:18px}
+ .note-card h3{font-size:16px}
+ .note-card p{font-size:14px}
+ .app-footer{padding:15px 16px;font-size:11px;gap:12px;flex-wrap:wrap}
+ .metric-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+ .metric-card{padding:15px;min-height:130px}
+ .metric-card>span{font-size:12px}
+ .metric-card>strong{font-size:25px}
+ .data-form{padding:17px}
+ .data-table{font-size:13px}
+ .data-table th,.data-table td{padding:13px 14px}
+ .auth-card{padding:25px}
+ .auth-card h1{font-size:27px}
+}
+@media(max-width:380px){
+ .metric-grid{grid-template-columns:1fr}
+ .main-content{padding-inline:12px}
+ .topbar{padding-inline:10px}
+}
