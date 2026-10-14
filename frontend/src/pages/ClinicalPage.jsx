@@ -78,6 +78,6 @@ export function ClinicalPage({ roles = [], nursingOnly = false }) {
       {canWriteVitals && <div className="history-section"><h3>Vital sign records</h3>{vitalRows.isError ? <p className="history-empty">Could not load vitals.</p> : (vitalRows.data || []).map(row => <p key={row.id}>{row.recorded_at ? new Date(row.recorded_at).toLocaleString() : ''} · {row.temperature_c ?? '—'} °C · Pulse {row.pulse_bpm ?? '—'} · BP {row.systolic_bp ?? '—'}/{row.diastolic_bp ?? '—'}</p>)}</div>}
       {error && <p className="form-error" role="alert">{error}</p>}
     </section>}
-    <div className="disclaimer">Clinical notes are append-only through the API. This capstone is not validated for real patient care; use fictional demo data only.</div>
+    <div className="disclaimer">Clinical notes are append-only through the API. This system has not been validated for real patient care.</div>
   </section>
 }
