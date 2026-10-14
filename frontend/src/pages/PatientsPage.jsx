@@ -74,7 +74,7 @@ export function PatientsPage({ roles = [] }) {
       <label>Middle name<input value={form.middle_name} onChange={event => setForm({ ...form, middle_name: event.target.value })}/></label>
       <label>Last name<input required value={form.last_name} onChange={event => setForm({ ...form, last_name: event.target.value })}/></label>
       <label>Date of birth<input type="date" value={form.date_of_birth} onChange={event => setForm({ ...form, date_of_birth: event.target.value })}/></label>
-      <label>Sex<input value={form.sex} onChange={event => setForm({ ...form, sex: event.target.value })} placeholder="Optional"/></label>
+      <label>Sex<select value={form.sex} onChange={event => setForm({ ...form, sex: event.target.value })}><option value="">Select sex</option><option value="Female">Female</option><option value="Male">Male</option><option value="Other">Other</option><option value="Not specified">Prefer not to say</option></select></label>
       <label>Phone<input value={form.phone} onChange={event => setForm({ ...form, phone: event.target.value })}/></label>
       <label>Email<input type="email" value={form.email} onChange={event => setForm({ ...form, email: event.target.value })}/></label>
       <label>Address<input value={form.address} onChange={event => setForm({ ...form, address: event.target.value })}/></label>
