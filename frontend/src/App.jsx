@@ -86,7 +86,7 @@ function ProfileIncomplete({ onSignOut }) {
 function AuthenticatedWorkspace() {
   const { session, loading, configured, signOut } = useAuth()
   const [theme, setTheme] = useState(() => {
-    try { return localStorage.getItem('nexuscare-theme') || 'dark' } catch { return 'dark' }
+    try { return localStorage.getItem('nexuscare-theme') || 'light' } catch { return 'light' }
   })
   const identity = useQuery({
     queryKey: ['identity', session?.user?.id],
