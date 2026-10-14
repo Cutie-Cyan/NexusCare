@@ -174,19 +174,25 @@ def seed_reference_data(session: Session) -> dict[str, Department]:
                 notes="Fictional seed opening stock",
             ))
 
-    for index, (first, last) in enumerate(PATIENT_NAMES, start=1):
-        mrn = f"DEMO-{index:05d}"
-        if session.scalar(select(Patient).where(Patient.medical_record_number == mrn)) is None:
-            session.add(
-                Patient(
-                    medical_record_number=mrn,
-                    first_name=first,
-                    last_name=last,
-                    date_of_birth=date(1990 + index % 25, (index % 12) + 1, (index % 27) + 1),
-                    sex="not_specified",
-                    notes="Fictional seed record. Do not use as real patient information.",
-                )
+    # Upsert stable fictional profiles so rerunning the seed fills in every
+    # demographic field on previously-created demo records without duplicating them.
+    for index, details in enumerate(PATIENT_DEMO_RECORDS, start=1):
+        mrn = f"NC-2026-{index:04d}"
+        patient = session.scalar(
+            select(Patient).where(Patient.medical_record_number == mrn)
+        )
+        if patient is None:
+            # Migrate records from the older, sparse DEMO-00001 style seed.
+            legacy_mrn = f"DEMO-{index:05d}"
+            patient = session.scalar(
+                select(Patient).where(Patient.medical_record_number == legacy_mrn)
             )
+        values = {"medical_record_number": mrn, **details}
+        if patient is None:
+            session.add(Patient(**values))
+        else:
+            for field, value in values.items():
+                setattr(patient, field, value)
     session.commit()
     return department_map
 
@@ -264,4 +270,4 @@ if __name__ == "__main__":
         departments = seed_reference_data(session)
         if args.create_auth_users:
             seed_doctor_auth_users(session, departments["GEN"])
-    print("Demo reference data and 20 fictional patient records are ready.")
+    print("Demo reference data and 20 fully populated fictional patient profiles are ready.")
