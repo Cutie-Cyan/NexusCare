@@ -27,7 +27,12 @@ function PatientHistoryModal({ patient, onClose }) {
             <span><strong>DATE OF BIRTH</strong>{textValue(data.patient?.date_of_birth)}</span>
             <span><strong>SEX</strong>{textValue(data.patient?.sex)}</span>
             <span><strong>PHONE</strong>{textValue(data.patient?.phone)}</span>
+            <span><strong>EMAIL</strong>{textValue(data.patient?.email)}</span>
+            <span><strong>ADDRESS</strong>{textValue(data.patient?.address)}</span>
+            <span><strong>EMERGENCY CONTACT</strong>{textValue(data.patient?.emergency_contact_name)}</span>
+            <span><strong>EMERGENCY PHONE</strong>{textValue(data.patient?.emergency_contact_phone)}</span>
             <span><strong>ALLERGIES</strong>{textValue(data.patient?.allergies)}</span>
+            <span><strong>REGISTRATION NOTES</strong>{textValue(data.patient?.notes)}</span>
           </div>
           <HistorySection title="Encounters" items={data.encounters || []} renderItem={item => <><strong>{item.encounter_type} · {item.status}</strong><span>{dateText(item.started_at)}</span><p>{textValue(item.chief_complaint)}</p></>}/>
           <HistorySection title="Diagnoses" items={data.diagnoses || []} renderItem={item => <><strong>{item.description}</strong><span>{item.code || 'No diagnosis code'}{item.is_primary ? ' · Primary' : ''}</span></>}/>
