@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_profile, require_roles
+from app.api.deps import require_roles
 from app.db.session import get_db
 from app.models import AuditLog, Profile
 
