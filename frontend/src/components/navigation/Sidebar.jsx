@@ -46,7 +46,7 @@ export function Sidebar({ mobileOpen, onClose, userEmail, roles = [] }) {
       <div className="brand-copy"><strong>NexusCare</strong><span>HOSPITAL SYSTEM</span></div>
       <button className="sidebar-mobile-close" aria-label="Close navigation" onClick={onClose}><X size={18}/></button>
     </div>
-    <div className="workspace-switcher"><div className="workspace-icon">N</div><div className="workspace-copy"><strong>NexusCare Hospital</strong><span>Local workspace</span></div><ChevronRight className="workspace-chevron" size={14}/></div>
+    <div className="workspace-switcher"><div className="workspace-icon">N</div><div className="workspace-copy"><strong>NexusCare Hospital</strong></div><ChevronRight className="workspace-chevron" size={14}/></div>
     <nav className="sidebar-nav">{visibleGroups.map(group => <section className="nav-group" key={group.label} aria-label={group.label}>
       <div className="nav-group-label">{group.label}</div>
       {group.items.map(([label, path, Icon]) => <NavLink key={path} to={path} end={path === '/'} onClick={onClose} className={({ isActive }) => 'nav-link ' + (isActive ? 'nav-link-active' : '')} title={label} aria-label={label}>
