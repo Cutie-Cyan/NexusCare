@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_profile, get_profile_roles, require_roles
+from app.api.deps import ensure_encounter_access, get_current_profile, get_profile_roles, require_roles
 from app.db.session import get_db
 from app.core.billing import add_service_charge
 from app.core.notifications import notify_roles
@@ -157,6 +157,7 @@ def create_prescription(
     ).with_for_update())
     if encounter is None:
         raise HTTPException(status_code=404, detail="Encounter not found.")
+    ensure_encounter_access(profile, encounter, db)
     if encounter.status in {"completed", "cancelled"}:
         raise HTTPException(status_code=409, detail="Cannot prescribe for a closed encounter.")
     medicine_ids = {item.medicine_id for item in payload.items}
@@ -193,6 +194,14 @@ def list_prescriptions(
     db: Session = Depends(get_db),
 ) -> list[Prescription]:
     statement = select(Prescription)
+    role_codes = set(get_profile_roles(profile.id, db))
+    if not role_codes.intersection({"administrator", "pharmacy_staff"}):
+        from sqlalchemy import or_
+        statement = statement.join(Encounter, Encounter.id == Prescription.encounter_id)
+        scope_conditions = [Encounter.clinician_id == profile.id]
+        if profile.department_id is not None:
+            scope_conditions.append(Encounter.department_id == profile.department_id)
+        statement = statement.where(or_(*scope_conditions))
     if prescription_status:
         if prescription_status not in {"issued", "partially_dispensed", "dispensed", "cancelled"}:
             raise HTTPException(status_code=422, detail="Unsupported prescription status.")
@@ -208,8 +217,15 @@ def list_prescription_items(
     profile: Profile = Depends(require_roles("administrator", "doctor", "nurse", "pharmacy_staff")),
     db: Session = Depends(get_db),
 ) -> list[PrescriptionItem]:
-    if db.scalar(select(Prescription.id).where(Prescription.id == prescription_id)) is None:
+    prescription = db.scalar(select(Prescription).where(Prescription.id == prescription_id))
+    if prescription is None:
         raise HTTPException(status_code=404, detail="Prescription not found.")
+    role_codes = set(get_profile_roles(profile.id, db))
+    if not role_codes.intersection({"administrator", "pharmacy_staff"}):
+        encounter = db.scalar(select(Encounter).where(Encounter.id == prescription.encounter_id))
+        if encounter is None:
+            raise HTTPException(status_code=404, detail="Encounter not found.")
+        ensure_encounter_access(profile, encounter, db)
     return list(db.scalars(select(PrescriptionItem).where(
         PrescriptionItem.prescription_id == prescription_id
     ).order_by(PrescriptionItem.id)).all())
