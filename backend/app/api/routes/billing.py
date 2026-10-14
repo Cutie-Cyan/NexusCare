@@ -3,7 +3,7 @@ from decimal import Decimal
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -91,11 +91,20 @@ def update_service_catalog_item(
     item = db.scalar(select(ServiceCatalog).where(ServiceCatalog.id == service_id).with_for_update())
     if item is None:
         raise HTTPException(status_code=404, detail="Service catalog item not found.")
+    previous_price = Decimal(str(item.price))
     changes = {key: value for key, value in payload.model_dump(exclude_unset=True).items() if value is not None}
     if not changes:
         raise HTTPException(status_code=400, detail="No fields supplied.")
     for field, value in changes.items():
         setattr(item, field, value)
+    if "price" in changes and Decimal(str(item.price)) != previous_price:
+        db.execute(text("""
+            insert into public.service_price_history
+              (service_id, previous_price, new_price, changed_by, reason)
+            values (:service_id, :previous_price, :new_price, :actor, :reason)
+        """), {"service_id": item.id, "previous_price": previous_price,
+               "new_price": Decimal(str(item.price)), "actor": profile.id,
+               "reason": "Updated through service catalogue administration"})
     _audit(db, profile, "service_fee.updated", "service_catalog", item.id, {
         "fields": sorted(changes.keys()), "price": str(item.price), "is_active": item.is_active,
     })
