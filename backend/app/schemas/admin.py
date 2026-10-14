@@ -11,6 +11,15 @@ class StaffCreate(BaseModel):
     department_id: UUID | None = None
     patient_id: UUID | None = None
 
+    @field_validator("department_id", "patient_id", mode="before")
+    @classmethod
+    def blank_optional_ids_are_none(cls, value):
+        # HTML form controls commonly submit "" for an unselected optional field.
+        # Treat that as an omitted value instead of returning a confusing 422.
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return None
+        return value
+
     @field_validator("email")
     @classmethod
     def normalize_email(cls, value: str) -> str:
