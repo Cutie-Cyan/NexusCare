@@ -186,9 +186,10 @@ def export_bills_csv(
                      "status", "subtotal", "adjustments", "total", "paid", "balance", "created_at"])
     for row in rows:
         total, paid = Decimal(str(row["total"] or 0)), Decimal(str(row["paid"] or 0))
+        balance = max(Decimal("0.00"), total - paid)
         writer.writerow([row["bill_number"], row["patient_id"], row["medical_record_number"],
                          row["first_name"], row["last_name"], row["status"], row["subtotal"],
-                         row["adjustments"], row["total"], row["paid"], f"{max(Decimal("0.00"), total-paid):.2f}",
+                         row["adjustments"], row["total"], row["paid"], f"{balance:.2f}",
                          row["created_at"].isoformat() if row["created_at"] else ""])
     db.add(AuditLog(actor_profile_id=profile.id, action="data.exported", resource_type="bills",
                     resource_id="csv", details={"row_count": len(rows), "status": bill_status}))
