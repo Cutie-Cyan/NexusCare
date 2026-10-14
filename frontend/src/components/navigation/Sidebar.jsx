@@ -50,7 +50,7 @@ export function Sidebar({ mobileOpen, onClose, userEmail, roles = [] }) {
     <nav className="sidebar-nav">{visibleGroups.map(group => <section className="nav-group" key={group.label} aria-label={group.label}>
       <div className="nav-group-label">{group.label}</div>
       {group.items.map(([label, path, Icon]) => <NavLink key={path} to={path} end={path === '/'} onClick={onClose} className={({ isActive }) => 'nav-link ' + (isActive ? 'nav-link-active' : '')} title={label} aria-label={label}>
-        <Icon className="nav-icon" size={18}/><span className="nav-label">{label}</span>{path === '/' && <span className="active-indicator"/>}
+        <Icon className="nav-icon" size={18}/><span className="nav-label">{label}</span>
       </NavLink>)}
     </section>)}</nav>
     <div className="sidebar-bottom">
