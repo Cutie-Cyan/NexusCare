@@ -44,6 +44,19 @@ def _roles(profile: Profile, db: Session) -> set[str]:
     return set(get_profile_roles(profile.id, db))
 
 
+def _ensure_appointment_scope(profile: Profile, appointment: Appointment, roles: set[str]) -> None:
+    if roles.intersection({"administrator", "information_officer"}):
+        return
+    if "patient" in roles:
+        return  # Patient ownership is checked separately by the calling route.
+    if roles.intersection({"doctor", "nurse"}) and (
+        appointment.clinician_id == profile.id
+        or (profile.department_id is not None and appointment.department_id == profile.department_id)
+    ):
+        return
+    raise HTTPException(status_code=404, detail="Appointment not found in your authorized scope.")
+
+
 @router.post("/departments", response_model=DepartmentRead, status_code=status.HTTP_201_CREATED, summary="Create a hospital department")
 def create_department(
     payload: DepartmentCreate,
@@ -413,6 +426,12 @@ def list_appointments(
             statement = statement.where(Appointment.patient_id == patient_id)
         if clinician_id:
             statement = statement.where(Appointment.clinician_id == clinician_id)
+        if not roles.intersection({"administrator", "information_officer"}):
+            from sqlalchemy import or_
+            scope_conditions = [Appointment.clinician_id == profile.id]
+            if profile.department_id is not None:
+                scope_conditions.append(Appointment.department_id == profile.department_id)
+            statement = statement.where(or_(*scope_conditions))
     else:
         raise HTTPException(status_code=403, detail="Insufficient permissions.")
     if appointment_status:
@@ -449,6 +468,9 @@ def create_appointment(
         Department.id == payload.department_id, Department.is_active.is_(True)
     )) is None:
         raise HTTPException(status_code=422, detail="Active department not found.")
+    if roles.intersection({"doctor", "nurse"}) and not roles.intersection({"administrator", "information_officer"}):
+        if profile.department_id is None or payload.department_id != profile.department_id:
+            raise HTTPException(status_code=403, detail="Appointments may only be created for your assigned department.")
     if payload.clinician_id:
         clinician = db.scalar(select(Profile).where(
             Profile.id == payload.clinician_id, Profile.is_active.is_(True)
@@ -511,6 +533,7 @@ def update_appointment_status(
             raise HTTPException(status_code=403, detail="Patients may only cancel their own appointment requests.")
     elif not roles.intersection(set(APPOINTMENT_CREATE_ROLES)):
         raise HTTPException(status_code=403, detail="Insufficient permissions.")
+    _ensure_appointment_scope(profile, appointment, roles)
     if appointment.status in {"completed", "cancelled", "no_show"}:
         raise HTTPException(status_code=409, detail="Closed appointment status cannot be changed.")
     appointment.status = payload.status
@@ -535,6 +558,10 @@ def create_online_consultation(
     appointment = db.scalar(select(Appointment).where(Appointment.id == appointment_id))
     if appointment is None:
         raise HTTPException(status_code=404, detail="Appointment not found.")
+    roles = _roles(profile, db)
+    _ensure_appointment_scope(profile, appointment, roles)
+    if "doctor" in roles and "administrator" not in roles and appointment.clinician_id != profile.id:
+        raise HTTPException(status_code=403, detail="Only the assigned clinician may create this online consultation.")
     if appointment.status in {"cancelled", "completed", "no_show"}:
         raise HTTPException(status_code=409, detail="Appointment is not eligible for an online consultation.")
     existing = db.scalar(select(OnlineConsultation).where(OnlineConsultation.appointment_id == appointment.id))
