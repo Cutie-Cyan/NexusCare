@@ -18,7 +18,7 @@ from app.models import (
     ProcurementRequest, ReceivingRecord, Supplier, SystemSetting,
 )
 from app.schemas.operations import (
-    AppointmentCreate, AppointmentRead, AppointmentStatusUpdate, DepartmentCreate, DepartmentRead,
+    AppointmentCreate, AppointmentRead, AppointmentStatusUpdate, DepartmentCreate, DepartmentRead, DepartmentUpdate,
     DoctorScheduleCreate, DoctorScheduleRead, ProcurementItemInput, ProcurementItemRead,
     ProcurementRequestCreate, ProcurementRequestRead, ReceivingRecordCreate, ReceivingRecordRead,
     InventoryItemCreate, InventoryItemRead, InventoryItemTransactionRead,
@@ -91,6 +91,47 @@ def list_departments(
         "id": str(row.id), "code": row.code, "name": row.name,
         "description": row.description, "is_active": row.is_active,
     } for row in rows]
+
+
+@router.patch("/departments/{department_id}", response_model=DepartmentRead, summary="Update or deactivate a department")
+def update_department(
+    department_id: UUID,
+    payload: DepartmentUpdate,
+    profile: Profile = Depends(require_roles("administrator")),
+    db: Session = Depends(get_db),
+) -> Department:
+    department = db.scalar(select(Department).where(Department.id == department_id).with_for_update())
+    if department is None:
+        raise HTTPException(status_code=404, detail="Department not found.")
+    changes = payload.model_dump(exclude_unset=True)
+    if not changes:
+        raise HTTPException(status_code=422, detail="Provide at least one field to update.")
+    if changes.get("is_active") is False:
+        active_beds = db.scalar(
+            select(func.count(Bed.id))
+            .join(__import__("app.models", fromlist=["Ward"]).Ward, Bed.ward_id == __import__("app.models", fromlist=["Ward"]).Ward.id)
+            .where(__import__("app.models", fromlist=["Ward"]).Ward.department_id == department.id,
+                   __import__("app.models", fromlist=["Ward"]).Ward.is_active.is_(True),
+                   Bed.status == "occupied")
+        ) or 0
+        if active_beds:
+            raise HTTPException(status_code=409, detail="Cannot deactivate a department while its wards contain occupied beds.")
+    before = {key: getattr(department, key) for key in changes}
+    for key, value in changes.items():
+        setattr(department, key, value)
+    try:
+        db.flush()
+        _audit(db, profile, "department.updated", "department", department.id, {
+            "changed_fields": sorted(changes),
+            "before": {key: str(value) if value is not None else None for key, value in before.items()},
+            "after": {key: str(value) if value is not None else None for key, value in changes.items()},
+        })
+        db.commit()
+        db.refresh(department)
+        return department
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="A department with that code or name already exists.") from exc
 
 
 @router.get("/suppliers", response_model=list[SupplierRead])
