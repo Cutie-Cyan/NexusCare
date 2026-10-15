@@ -19,8 +19,10 @@ async function downloadReceiptPdf(receiptNumber) {
   const anchor = document.createElement('a')
   anchor.href = url
   anchor.download = 'receipt-' + receiptNumber + '.pdf'
+  document.body.appendChild(anchor)
   anchor.click()
-  URL.revokeObjectURL(url)
+  anchor.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 export function ReceiptsPage() {
