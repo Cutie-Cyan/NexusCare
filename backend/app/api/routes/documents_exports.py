@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import io
+import logging
 import re
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -18,6 +19,7 @@ from app.core.config import get_settings
 from app.db.session import get_db
 from app.models import AuditLog, Profile
 
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["patient documents and exports"])
 STAFF_DOCUMENT_ROLES = ("administrator", "cashier", "information_officer", "doctor", "nurse")
 REVIEW_ROLES = ("administrator", "cashier")
@@ -89,8 +91,8 @@ async def upload_patient_document(
         db.rollback()
         try:
             storage.remove([path])
-        except Exception:
-            pass
+        except Exception:  # noqa: BLE001 - retain the original upload/database failure
+            logger.exception("Failed to remove uploaded object after document transaction failure")
         if isinstance(exc, HTTPException):
             raise
         raise HTTPException(status_code=500, detail="Document upload could not be completed.") from exc
