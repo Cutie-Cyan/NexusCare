@@ -150,7 +150,7 @@ export function FinancialAssistancePage({ roles = [] }) {
 
     <section className="data-form">
       <h2><FileSpreadsheet size={16}/> Authorized exports</h2><p className="page-description">Exports are authenticated, role-restricted, and recorded in the audit trail.</p>
-      <div className="row-actions">{[['/exports/bills.xlsx','bills.xlsx','Bills (Excel)'],['/exports/payments.xlsx','payments.xlsx','Payments (Excel)'],['/exports/bills.csv','bills.csv','Bills (CSV)'],['/exports/payments.csv','payments.csv','Payments (CSV)']].map(([path, filename, label]) => <button key={path} className="secondary-button" disabled={Boolean(exporting)} onClick={() => exportData(path, filename)}>{exporting === filename ? 'Exporting…' : label}</button>)}</div>
+      <div className="row-actions">{[['/exports/patients.xlsx','patients.xlsx','Patients (Excel)'],['/exports/appointments.xlsx','appointments.xlsx','Appointments (Excel)'],['/exports/bills.xlsx','bills.xlsx','Bills (Excel)'],['/exports/payments.xlsx','payments.xlsx','Payments (Excel)'],['/exports/inventory.xlsx','inventory.xlsx','Inventory (Excel)'],['/exports/statistics.xlsx','statistics.xlsx','Statistics (Excel)'],['/exports/bills.csv','bills.csv','Bills (CSV)'],['/exports/payments.csv','payments.csv','Payments (CSV)']].map(([path, filename, label]) => <button key={path} className="secondary-button" disabled={Boolean(exporting)} onClick={() => exportData(path, filename)}>{exporting === filename ? 'Exporting…' : label}</button>)}</div>
     </section>
   </section>
 }
