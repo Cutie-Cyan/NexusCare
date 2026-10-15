@@ -47,6 +47,7 @@ const pages = [
   ['/billing', 'Billing', 'Itemized bills, service fees, automatic laboratory/pharmacy/professional-fee charges, and balance APIs are available.'],
   ['/payments', 'Payments', 'Idempotent payment posting and administrator-only audited payment reversals are available.'],
   ['/receipts', 'Receipts', 'Receipt records are created with successful payment postings and can be retrieved by receipt number.'],
+  ['/financial-assistance', 'Discounts & Benefits', 'Verify supporting documents, review discounts, and estimate deductions.'],
   ['/staff', 'Staff & Accounts', 'Create Supabase Auth accounts, assign roles, and manage active staff profiles.'],
   ['/departments', 'Departments', 'Manage departments used by wards, encounters, and appointments.'],
   ['/service-fees', 'Service Fees', 'Administrator-only service-fee creation and updates are available through the API.'],
