@@ -58,6 +58,13 @@ async def upload_patient_document(
         raise HTTPException(status_code=422, detail="The uploaded file is empty.")
     if len(data) > MAX_BYTES:
         raise HTTPException(status_code=413, detail="Maximum document size is 10 MB.")
+    signatures = {
+        "application/pdf": data.startswith(b"%PDF-"),
+        "image/jpeg": data.startswith(b"\\xff\\xd8\\xff"),
+        "image/png": data.startswith(b"\\x89PNG\\r\\n\\x1a\\n"),
+    }
+    if not signatures.get(file.content_type, False):
+        raise HTTPException(status_code=415, detail="File contents do not match the declared document type.")
     filename = _safe_filename(file.filename)
     path = f"{patient_id}/{uuid4().hex}_{filename}"
     storage = _storage()
