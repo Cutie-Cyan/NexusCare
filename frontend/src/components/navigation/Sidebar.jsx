@@ -25,7 +25,8 @@ const groups = [
     ['Online Consultation', '/online-consultation', Video],
   ]},
   { label: 'FINANCIAL MANAGEMENT', items: [
-    ['Billing', '/billing', Wallet], ['Payments', '/payments', CreditCard], ['Receipts', '/receipts', ReceiptText],\n    ['Discounts & Benefits', '/financial-assistance', FileCheck2],
+    ['Billing', '/billing', Wallet], ['Payments', '/payments', CreditCard], ['Receipts', '/receipts', ReceiptText],
+    ['Discounts & Benefits', '/financial-assistance', FileCheck2],
   ]},
   { label: 'ADMINISTRATION', items: [
     ['Staff & Accounts', '/staff', ShieldCheck], ['Departments', '/departments', Building2],
