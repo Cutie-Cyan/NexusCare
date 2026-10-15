@@ -33,13 +33,14 @@ from app.models import (
     ReceivingRecord,
     Supplier,
     SystemSetting,
+    Ward,
 )
 from app.schemas.operations import (
     AppointmentCreate,
     AppointmentRead,
     AppointmentStatusUpdate,
-    DepartmentCreate,
     DepartmentRead,
+    DepartmentUpdate,
     DoctorScheduleCreate,
     DoctorScheduleRead,
     InventoryItemCreate,
@@ -92,40 +93,6 @@ def _ensure_appointment_scope(profile: Profile, appointment: Appointment, roles:
     raise HTTPException(status_code=404, detail="Appointment not found in your authorized scope.")
 
 
-@router.post("/departments", response_model=DepartmentRead, status_code=status.HTTP_201_CREATED, summary="Create a hospital department")
-def create_department(
-    payload: DepartmentCreate,
-    profile: Profile = Depends(require_roles("administrator")),
-    db: Session = Depends(get_db),
-) -> Department:
-    department = Department(**payload.model_dump(), is_active=True)
-    db.add(department)
-    try:
-        db.flush()
-        _audit(db, profile, "department.created", "department", department.id, {"code": department.code})
-        db.commit()
-        db.refresh(department)
-        return department
-    except IntegrityError as exc:
-        db.rollback()
-        raise HTTPException(status_code=409, detail="A department with that code or name already exists.") from exc
-
-
-@router.get("/departments", summary="List active hospital departments")
-def list_departments(
-    profile: Profile = Depends(require_roles(
-        "administrator", "information_officer", "doctor", "nurse",
-        "cashier", "laboratory_staff", "pharmacy_staff",
-    )),
-    db: Session = Depends(get_db),
-) -> list[dict]:
-    rows = db.scalars(
-        select(Department).where(Department.is_active.is_(True)).order_by(Department.name)
-    ).all()
-    return [{
-        "id": str(row.id), "code": row.code, "name": row.name,
-        "description": row.description, "is_active": row.is_active,
-    } for row in rows]
 
 
 @router.patch("/departments/{department_id}", response_model=DepartmentRead, summary="Update or deactivate a department")

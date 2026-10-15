@@ -115,36 +115,6 @@ class DepartmentRead(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-class DepartmentUpdate(BaseModel):
-    code: str | None = Field(default=None, min_length=2, max_length=40)
-    name: str | None = Field(default=None, min_length=2, max_length=120)
-    description: str | None = Field(default=None, max_length=3000)
-    is_active: bool | None = None
-
-    @field_validator("code")
-    @classmethod
-    def normalize_update_code(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        value = value.strip().upper()
-        if not value:
-            raise ValueError("Department code cannot be blank.")
-        return value
-
-    @field_validator("name")
-    @classmethod
-    def normalize_update_name(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        value = value.strip()
-        if not value:
-            raise ValueError("Department name cannot be blank.")
-        return value
-
-    @field_validator("description")
-    @classmethod
-    def normalize_update_description(cls, value: str | None) -> str | None:
-        return value.strip() or None if value is not None else None
 
 
 class SupplierCreate(BaseModel):
