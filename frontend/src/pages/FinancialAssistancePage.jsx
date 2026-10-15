@@ -31,7 +31,7 @@ export function FinancialAssistancePage({ roles = [] }) {
   const [patientId, setPatientId] = useState('')
   const [documentType, setDocumentType] = useState('senior_id')
   const [file, setFile] = useState(null)
-  const [discount, setDiscount] = useState({ bill_id: '', discount_type: 'senior_citizen', requested_amount: '' })
+  const [discount, setDiscount] = useState({ bill_id: '', document_id: '', discount_type: 'senior_citizen', requested_amount: '' })
   const [estimate, setEstimate] = useState({ bill_id: '', estimate_type: 'philhealth', estimated_coverage: '0', estimated_discount: '0' })
   const [reviewNotes, setReviewNotes] = useState('')
   const [error, setError] = useState('')
@@ -67,10 +67,10 @@ export function FinancialAssistancePage({ roles = [] }) {
       if (!bill) throw new Error('Choose a bill.')
       return apiRequest('/discount-applications', { method: 'POST', body: {
         patient_id: bill.patient_id, bill_id: bill.id, discount_type: discount.discount_type,
-        requested_amount: discount.requested_amount, document_id: null,
+        requested_amount: discount.requested_amount, document_id: discount.document_id || null,
       } })
     },
-    onSuccess: () => { setNotice('Discount request submitted for staff review.'); setError(''); setDiscount({ bill_id: '', discount_type: 'senior_citizen', requested_amount: '' }); client.invalidateQueries({ queryKey: ['discount-applications'] }) },
+    onSuccess: () => { setNotice('Discount request submitted for staff review.'); setError(''); setDiscount({ bill_id: '', document_id: '', discount_type: 'senior_citizen', requested_amount: '' }); client.invalidateQueries({ queryKey: ['discount-applications'] }) },
     onError: err => setError(err.message),
   })
   const reviewDocument = useMutation({
@@ -129,9 +129,10 @@ export function FinancialAssistancePage({ roles = [] }) {
     <section className="data-form">
       <h2>Request a bill deduction</h2><p className="page-description">Requests require review. An approved amount is applied to the selected bill by the server.</p>
       <form onSubmit={event => { event.preventDefault(); requestDiscount.mutate() }}><div className="form-grid">
-        <label>Bill<select required value={discount.bill_id} onChange={event => setDiscount({ ...discount, bill_id: event.target.value })}><option value="">Choose bill</option>{billRows.filter(row => ['open', 'partially_paid'].includes(row.status)).map(row => <option key={row.id} value={row.id}>{row.bill_number} · {patientName(row.patient_id)} · {money(row.total)}</option>)}</select></label>
+        <label>Bill<select required value={discount.bill_id} onChange={event => { const bill = billRows.find(row => row.id === event.target.value); setDiscount({ ...discount, bill_id: event.target.value, document_id: '' }); if (bill) setPatientId(bill.patient_id) }}><option value="">Choose bill</option>{billRows.filter(row => ['open', 'partially_paid'].includes(row.status)).map(row => <option key={row.id} value={row.id}>{row.bill_number} · {patientName(row.patient_id)} · {money(row.total)}</option>)}</select></label>
         <label>Deduction type<select value={discount.discount_type} onChange={event => setDiscount({ ...discount, discount_type: event.target.value })}><option value="senior_citizen">Senior citizen</option><option value="pwd">PWD</option><option value="philhealth">PhilHealth</option><option value="insurance">Insurance</option><option value="other">Other</option></select></label>
         <label>Requested amount (PHP)<input type="number" min="0" step="0.01" required value={discount.requested_amount} onChange={event => setDiscount({ ...discount, requested_amount: event.target.value })}/></label>
+        <label>Verified supporting document<select value={discount.document_id} onChange={event => setDiscount({ ...discount, document_id: event.target.value })}><option value="">No document linked</option>{(documents.data || []).filter(row => row.verification_status === 'approved').map(row => <option key={row.id} value={row.id}>{labels[row.document_type] || row.document_type} · {row.original_filename}</option>)}</select></label>
       </div><button className="primary-button" disabled={requestDiscount.isPending}>{requestDiscount.isPending ? 'Submitting…' : 'Submit discount request'}</button></form>
       <div className="history-section"><h3>Discount requests</h3>{applications.isPending ? <p>Loading requests…</p> : applications.isError ? <p className="form-error">{applications.error.message}</p> : <div className="data-table-wrap"><table className="data-table"><thead><tr><th>Patient</th><th>Bill</th><th>Type</th><th>Requested</th><th>Approved</th><th>Status</th>{canReview && <th>Decision</th>}</tr></thead><tbody>{(applications.data || []).map(row => <tr key={row.id}><td>{patientName(row.patient_id)}</td><td>{row.bill_id || '—'}</td><td>{row.discount_type}</td><td>{money(row.requested_amount)}</td><td>{money(row.approved_amount)}</td><td>{row.status}</td>{canReview && <td>{row.status === 'pending' ? <div className="row-actions"><button className="table-action" onClick={() => reviewDiscount.mutate({ id: row.id, status: 'approved', amount: row.requested_amount })}>Approve full</button><button className="table-action" onClick={() => reviewDiscount.mutate({ id: row.id, status: 'rejected', amount: 0 })}>Reject</button></div> : '—'}</td>}</tr>)}</tbody></table></div>}</div>
     </section>
