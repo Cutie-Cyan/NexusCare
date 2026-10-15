@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import io
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from xml.sax.saxutils import escape
 
@@ -115,10 +115,23 @@ def _styled_sheet(workbook: Workbook, title: str, headers: list[str]):
 
 
 def _xlsx_response(workbook: Workbook, name: str) -> StreamingResponse:
+    # Keep filters useful on the full data range and prevent spreadsheet formula injection.
+    for sheet in workbook.worksheets:
+        sheet.auto_filter.ref = sheet.dimensions
+        for column in sheet.columns:
+            values = [cell.value for cell in column if cell.value is not None]
+            if values:
+                width = min(max(max(len(str(value)) for value in values) + 2, 12), 42)
+                sheet.column_dimensions[column[0].column_letter].width = width
+            for cell in column:
+                value = cell.value
+                if isinstance(value, str) and value.lstrip()[:1] in {"=", "+", "-", "@"}:
+                    cell.value = "'" + value
+
     output = io.BytesIO()
     workbook.save(output)
     output.seek(0)
-    filename = f"nexuscare-{name}-{datetime.now(timezone.utc):%Y%m%d-%H%M%S}.xlsx"
+    filename = f"nexuscare-{name}-{datetime.now(UTC):%Y%m%d-%H%M%S}.xlsx"
     return StreamingResponse(output, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                             headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
@@ -147,7 +160,7 @@ def export_bills_xlsx(
         paid = Decimal(str(row["paid"] or 0))
         sheet.append([row["bill_number"], str(row["patient_id"]), row["medical_record_number"],
             row["first_name"], row["last_name"], row["status"], float(row["subtotal"] or 0),
-            float(row["adjustments"] or 0), float(total), float(paid), float(max(Decimal("0"), total-paid)),
+            float(row["adjustments"] or 0), float(total), float(paid), float(max(Decimal(0), total-paid)),
             row["created_at"].isoformat() if row["created_at"] else ""])
     for col in "GHIJK":
         for cell in sheet[col][1:]:

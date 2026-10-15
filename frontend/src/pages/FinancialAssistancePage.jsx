@@ -21,8 +21,10 @@ async function downloadExport(path, filename) {
   const anchor = document.createElement('a')
   anchor.href = url
   anchor.download = filename
+  document.body.appendChild(anchor)
   anchor.click()
-  URL.revokeObjectURL(url)
+  anchor.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 export function FinancialAssistancePage({ roles = [] }) {
@@ -122,6 +124,7 @@ export function FinancialAssistancePage({ roles = [] }) {
         <label>Document type<select value={documentType} onChange={event => setDocumentType(event.target.value)}>{Object.entries(labels).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</select></label>
         <label>File (PDF, JPG, PNG; max 10 MB)<input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={event => setFile(event.target.files?.[0] || null)}/></label>
       </div>
+      <label>Review notes (optional)<textarea rows={2} value={reviewNotes} onChange={event => setReviewNotes(event.target.value)} placeholder="Reason for approval or rejection"/></label>
       <button className="primary-button" disabled={upload.isPending || !patientId || !file} onClick={() => upload.mutate()}>{upload.isPending ? 'Uploading…' : 'Upload document'}</button>
       {patientId && <div className="history-section"><h3>Documents for {patientName(patientId)}</h3>{documents.isPending ? <p>Loading documents…</p> : documents.isError ? <p className="form-error">{documents.error.message}</p> : !documents.data?.length ? <p>No supporting documents uploaded.</p> : <div className="data-table-wrap"><table className="data-table"><thead><tr><th>File</th><th>Type</th><th>Status</th><th>Uploaded</th><th>Actions</th></tr></thead><tbody>{documents.data.map(row => <tr key={row.id}><td>{row.original_filename}</td><td>{labels[row.document_type] || row.document_type}</td><td>{row.verification_status}</td><td>{row.created_at ? new Date(row.created_at).toLocaleString() : '—'}</td><td><div className="row-actions"><button className="table-action" onClick={() => openDocument(row.id)}>View securely</button>{canReview && row.verification_status === 'pending' && <><button className="table-action" onClick={() => reviewDocument.mutate({ id: row.id, status: 'approved' })}>Approve</button><button className="table-action" onClick={() => reviewDocument.mutate({ id: row.id, status: 'rejected' })}>Reject</button></>}</div></td></tr>)}</tbody></table></div>}</div>}
     </section>
@@ -134,7 +137,7 @@ export function FinancialAssistancePage({ roles = [] }) {
         <label>Requested amount (PHP)<input type="number" min="0" step="0.01" required value={discount.requested_amount} onChange={event => setDiscount({ ...discount, requested_amount: event.target.value })}/></label>
         <label>Verified supporting document<select value={discount.document_id} onChange={event => setDiscount({ ...discount, document_id: event.target.value })}><option value="">No document linked</option>{(documents.data || []).filter(row => row.verification_status === 'approved').map(row => <option key={row.id} value={row.id}>{labels[row.document_type] || row.document_type} · {row.original_filename}</option>)}</select></label>
       </div><button className="primary-button" disabled={requestDiscount.isPending}>{requestDiscount.isPending ? 'Submitting…' : 'Submit discount request'}</button></form>
-      <div className="history-section"><h3>Discount requests</h3>{applications.isPending ? <p>Loading requests…</p> : applications.isError ? <p className="form-error">{applications.error.message}</p> : <div className="data-table-wrap"><table className="data-table"><thead><tr><th>Patient</th><th>Bill</th><th>Type</th><th>Requested</th><th>Approved</th><th>Status</th>{canReview && <th>Decision</th>}</tr></thead><tbody>{(applications.data || []).map(row => <tr key={row.id}><td>{patientName(row.patient_id)}</td><td>{row.bill_id || '—'}</td><td>{row.discount_type}</td><td>{money(row.requested_amount)}</td><td>{money(row.approved_amount)}</td><td>{row.status}</td>{canReview && <td>{row.status === 'pending' ? <div className="row-actions"><button className="table-action" onClick={() => reviewDiscount.mutate({ id: row.id, status: 'approved', amount: row.requested_amount })}>Approve full</button><button className="table-action" onClick={() => reviewDiscount.mutate({ id: row.id, status: 'rejected', amount: 0 })}>Reject</button></div> : '—'}</td>}</tr>)}</tbody></table></div>}</div>
+      <div className="history-section"><h3>Discount requests</h3>{applications.isPending ? <p>Loading requests…</p> : applications.isError ? <p className="form-error">{applications.error.message}</p> : <div className="data-table-wrap"><table className="data-table"><thead><tr><th>Patient</th><th>Bill</th><th>Type</th><th>Requested</th><th>Approved</th><th>Status</th>{canReview && <th>Decision</th>}</tr></thead><tbody>{(applications.data || []).map(row => <tr key={row.id}><td>{patientName(row.patient_id)}</td><td>{billRows.find(bill => bill.id === row.bill_id)?.bill_number || '—'}</td><td>{row.discount_type}</td><td>{money(row.requested_amount)}</td><td>{money(row.approved_amount)}</td><td>{row.status}</td>{canReview && <td>{row.status === 'pending' ? <div className="row-actions"><button className="table-action" onClick={() => reviewDiscount.mutate({ id: row.id, status: 'approved', amount: row.requested_amount })}>Approve full</button><button className="table-action" onClick={() => reviewDiscount.mutate({ id: row.id, status: 'rejected', amount: 0 })}>Reject</button></div> : '—'}</td>}</tr>)}</tbody></table></div>}</div>
     </section>
 
     <section className="data-form">
