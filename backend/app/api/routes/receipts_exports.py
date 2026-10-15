@@ -5,6 +5,7 @@ import io
 from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import UUID
+from xml.sax.saxutils import escape
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -64,16 +65,16 @@ def download_receipt_pdf(
         Paragraph("NexusCare Hospital", styles["Title"]),
         Paragraph("OFFICIAL PAYMENT RECEIPT", styles["Heading2"]),
         Spacer(1, 10),
-        Paragraph(f"<b>Receipt No:</b> {receipt.receipt_number}", styles["Normal"]),
+        Paragraph(f"<b>Receipt No:</b> {escape(receipt.receipt_number)}", styles["Normal"]),
         Paragraph(f"<b>Date:</b> {receipt.issued_at:%Y-%m-%d %H:%M %Z}" if receipt.issued_at else "Date: —", styles["Normal"]),
-        Paragraph(f"<b>Patient:</b> {patient.first_name} {patient.last_name}", styles["Normal"]),
-        Paragraph(f"<b>Medical Record No:</b> {patient.medical_record_number}", styles["Normal"]),
-        Paragraph(f"<b>Bill No:</b> {bill.bill_number}", styles["Normal"]),
+        Paragraph(f"<b>Patient:</b> {escape(patient.first_name)} {escape(patient.last_name)}", styles["Normal"]),
+        Paragraph(f"<b>Medical Record No:</b> {escape(patient.medical_record_number)}", styles["Normal"]),
+        Paragraph(f"<b>Bill No:</b> {escape(bill.bill_number)}", styles["Normal"]),
         Spacer(1, 12),
     ]
     data = [["Description", "Qty", "Unit price (PHP)", "Amount (PHP)"]]
     for item in items:
-        data.append([item.description, str(item.quantity), f"{item.unit_price:,.2f}", f"{item.line_total:,.2f}"])
+        data.append([Paragraph(escape(item.description), styles["Normal"]), str(item.quantity), f"{item.unit_price:,.2f}", f"{item.line_total:,.2f}"])
     data.extend([
         ["", "", "Bill total", f"{bill.total:,.2f}"],
         ["", "", "This payment", f"{payment.amount:,.2f}"],
