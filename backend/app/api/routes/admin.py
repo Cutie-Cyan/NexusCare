@@ -1,3 +1,4 @@
+import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -12,6 +13,7 @@ from app.db.session import get_db
 from app.models import AuditLog, Department, Patient, Profile, Role, UserRole
 from app.schemas.admin import StaffCreate, StaffRolesUpdate, StaffStatusUpdate
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["administration"])
 
 
@@ -155,8 +157,8 @@ def create_staff_account(
         db.rollback()
         try:
             admin_client.auth.admin.delete_user(str(auth_user.id))
-        except Exception:
-            pass
+        except Exception:  # noqa: BLE001 - preserve the original database failure
+            logger.exception("Failed to roll back Supabase Auth user after profile creation failure")
         if isinstance(exc, HTTPException):
             raise
         if isinstance(exc, IntegrityError):
