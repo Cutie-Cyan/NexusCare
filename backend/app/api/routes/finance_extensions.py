@@ -117,10 +117,30 @@ def review_discount_application(
     approved_amount = payload.approved_amount if payload.status == "approved" else Decimal("0.00")
     if approved_amount > Decimal(str(row["requested_amount"])):
         raise HTTPException(status_code=422, detail="Approved amount cannot exceed requested amount.")
-    if row["bill_id"]:
-        bill_total = db.execute(text("select total from public.bills where id=:id"), {"id": row["bill_id"]}).scalar_one()
-        if approved_amount > Decimal(str(bill_total)):
-            raise HTTPException(status_code=422, detail="Approved amount cannot exceed the bill total.")
+    if row["bill_id"] and payload.status == "approved" and approved_amount > 0:
+        bill = db.execute(text("""
+            select id, total, adjustments, status
+            from public.bills where id=:id for update
+        """), {"id": row["bill_id"]}).mappings().first()
+        if not bill:
+            raise HTTPException(status_code=404, detail="Bill not found.")
+        paid = Decimal(str(db.execute(text("""
+            select coalesce(sum(amount), 0) from public.payments
+            where bill_id=:id and status='posted'
+        """), {"id": row["bill_id"]}).scalar_one()))
+        outstanding = max(Decimal("0.00"), Decimal(str(bill["total"])) - paid)
+        if approved_amount > Decimal(str(row["requested_amount"])):
+            raise HTTPException(status_code=422, detail="Approved amount cannot exceed requested amount.")
+        if approved_amount > outstanding:
+            raise HTTPException(status_code=409, detail="Approved discount cannot exceed the outstanding bill balance.")
+        new_total = Decimal(str(bill["total"])) - approved_amount
+        new_adjustments = Decimal(str(bill["adjustments"])) - approved_amount
+        new_status = "paid" if paid >= new_total else ("partially_paid" if paid > 0 else "open")
+        db.execute(text("""
+            update public.bills set adjustments=:adjustments, total=:total, status=:status, updated_at=now()
+            where id=:id
+        """), {"id": row["bill_id"], "adjustments": new_adjustments,
+               "total": new_total, "status": new_status})
     updated = db.execute(text("""
         update public.discount_applications
         set status=:status, approved_amount=:approved_amount, reviewed_by=:reviewed_by,
