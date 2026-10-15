@@ -115,6 +115,19 @@ def _styled_sheet(workbook: Workbook, title: str, headers: list[str]):
 
 
 def _xlsx_response(workbook: Workbook, name: str) -> StreamingResponse:
+    # Keep filters useful on the full data range and prevent spreadsheet formula injection.
+    for sheet in workbook.worksheets:
+        sheet.auto_filter.ref = sheet.dimensions
+        for column in sheet.columns:
+            values = [cell.value for cell in column if cell.value is not None]
+            if values:
+                width = min(max(max(len(str(value)) for value in values) + 2, 12), 42)
+                sheet.column_dimensions[column[0].column_letter].width = width
+            for cell in column:
+                value = cell.value
+                if isinstance(value, str) and value.lstrip()[:1] in {"=", "+", "-", "@"}:
+                    cell.value = "'" + value
+
     output = io.BytesIO()
     workbook.save(output)
     output.seek(0)
