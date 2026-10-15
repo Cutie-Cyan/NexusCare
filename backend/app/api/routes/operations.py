@@ -468,9 +468,12 @@ def create_appointment(
         Department.id == payload.department_id, Department.is_active.is_(True)
     )) is None:
         raise HTTPException(status_code=422, detail="Active department not found.")
-    if roles.intersection({"doctor", "nurse"}) and not roles.intersection({"administrator", "information_officer"}):
-        if profile.department_id is None or payload.department_id != profile.department_id:
-            raise HTTPException(status_code=403, detail="Appointments may only be created for your assigned department.")
+    if (
+        roles.intersection({"doctor", "nurse"})
+        and not roles.intersection({"administrator", "information_officer"})
+        and (profile.department_id is None or payload.department_id != profile.department_id)
+    ):
+        raise HTTPException(status_code=403, detail="Appointments may only be created for your assigned department.")
     if payload.clinician_id:
         clinician = db.scalar(select(Profile).where(
             Profile.id == payload.clinician_id, Profile.is_active.is_(True)
