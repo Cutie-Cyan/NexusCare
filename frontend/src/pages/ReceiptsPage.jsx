@@ -1,14 +1,33 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Printer, ReceiptText, Search } from 'lucide-react'
-import { apiRequest } from '../lib/api.js'
+import { apiRequest, API_BASE_URL } from '../lib/api.js'
+import { supabase } from '../lib/supabase.js'
 
 const dateLabel = value => value ? new Date(value).toLocaleString() : '—'
 const money = value => '₱' + Number(value || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
+async function downloadReceiptPdf(receiptNumber) {
+  const { data, error } = await supabase.auth.getSession()
+  if (error) throw new Error(error.message)
+  if (!data.session?.access_token) throw new Error('Please sign in again.')
+  const response = await fetch(API_BASE_URL + '/receipts/' + encodeURIComponent(receiptNumber) + '/pdf', {
+    headers: { Authorization: 'Bearer ' + data.session.access_token },
+  })
+  if (!response.ok) throw new Error('Could not download the receipt PDF.')
+  const url = URL.createObjectURL(await response.blob())
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = 'receipt-' + receiptNumber + '.pdf'
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
+
 export function ReceiptsPage() {
   const [search, setSearch] = useState('')
   const [selectedNumber, setSelectedNumber] = useState('')
+  const [downloadError, setDownloadError] = useState('')
+  const [downloading, setDownloading] = useState(false)
   const receipts = useQuery({ queryKey: ['receipts'], queryFn: () => apiRequest('/receipts?limit=100') })
   const detail = useQuery({ queryKey: ['receipt-detail', selectedNumber], queryFn: () => apiRequest('/receipts/' + encodeURIComponent(selectedNumber)), enabled: Boolean(selectedNumber) })
   const rows = receipts.data || []
@@ -24,7 +43,8 @@ export function ReceiptsPage() {
       : filtered.length === 0 ? <div className="empty-state"><ReceiptText size={24}/><strong>No receipts found</strong><span>Receipts appear after a payment is successfully posted.</span></div>
       : <div className="data-table-wrap"><table className="data-table"><thead><tr><th>Receipt number</th><th>Bill</th><th>Amount</th><th>Method</th><th>Status</th><th>Issued</th><th>Action</th></tr></thead><tbody>{filtered.map(row => <tr key={row.receipt_number}><td><strong>{row.receipt_number}</strong></td><td>{row.bill_number}</td><td>{money(row.payment_amount)}</td><td>{row.payment_method}</td><td>{row.payment_status}</td><td>{dateLabel(row.issued_at)}</td><td><button className="table-action" onClick={() => setSelectedNumber(row.receipt_number)}>View / print</button></td></tr>)}</tbody></table></div>}
     {selectedNumber && <div className="modal-scrim" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setSelectedNumber('') }}><section className="history-modal" role="dialog" aria-modal="true" aria-labelledby="receipt-title">
-      <header><div><div className="eyebrow">NEXUSCARE · PAYMENT RECORD</div><h2 id="receipt-title">Receipt</h2><p>{selectedNumber}</p></div><button className="secondary-button" onClick={() => window.print()}><Printer size={14}/> Print</button></header>
+      <header><div><div className="eyebrow">NEXUSCARE · PAYMENT RECORD</div><h2 id="receipt-title">Receipt</h2><p>{selectedNumber}</p></div><div className="row-actions"><button className="secondary-button" onClick={() => window.print()}><Printer size={14}/> Print</button><button className="secondary-button" disabled={downloading} onClick={async () => { setDownloading(true); setDownloadError(''); try { await downloadReceiptPdf(selectedNumber) } catch (error) { setDownloadError(error.message) } finally { setDownloading(false) } }}>{downloading ? 'Downloading…' : 'Download PDF'}</button></div></header>
+      {downloadError && <p className="form-error" role="alert">{downloadError}</p>}
       {detail.isPending ? <div className="empty-state">Loading receipt…</div>
         : detail.isError ? <div className="error-panel"><strong>Could not load receipt</strong><p>{detail.error.message}</p></div>
         : <div className="history-content"><article className="receipt-printable history-section">
