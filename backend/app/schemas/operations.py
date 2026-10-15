@@ -320,3 +320,25 @@ class SystemSettingRead(BaseModel):
     updated_by: UUID | None
     created_at: datetime
     updated_at: datetime
+
+
+class DepartmentUpdate(BaseModel):
+    code: str | None = Field(default=None, min_length=2, max_length=40)
+    name: str | None = Field(default=None, min_length=2, max_length=120)
+    description: str | None = Field(default=None, max_length=3000)
+    is_active: bool | None = None
+
+    @field_validator("code")
+    @classmethod
+    def normalize_update_code(cls, value: str | None) -> str | None:
+        return value.strip().upper() if value is not None else None
+
+    @field_validator("name")
+    @classmethod
+    def normalize_update_name(cls, value: str | None) -> str | None:
+        return value.strip() if value is not None else None
+
+    @field_validator("description")
+    @classmethod
+    def normalize_update_description(cls, value: str | None) -> str | None:
+        return value.strip() or None if value is not None else None
