@@ -1,16 +1,27 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import ensure_encounter_access, require_roles
-from app.db.session import get_db
 from app.core.billing import add_service_charge
 from app.core.notifications import notify_roles
-from app.models import AuditLog, BillItem, ConsultationNote, Encounter, NursingNote, Profile, ServiceCatalog
+from app.db.session import get_db
+from app.models import (
+    AuditLog,
+    BillItem,
+    ConsultationNote,
+    Encounter,
+    NursingNote,
+    Profile,
+    ServiceCatalog,
+)
 from app.schemas.notes import (
-    ConsultationNoteCreate, ConsultationNoteRead, NursingNoteCreate, NursingNoteRead,
+    ConsultationNoteCreate,
+    ConsultationNoteRead,
+    NursingNoteCreate,
+    NursingNoteRead,
 )
 
 router = APIRouter(tags=["consultation and nursing notes"])

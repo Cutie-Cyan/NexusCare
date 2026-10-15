@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
 from zoneinfo import ZoneInfo
@@ -9,22 +9,57 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_profile, get_profile_roles, require_roles
-from app.db.session import get_db
 from app.core.notifications import notify_profiles, notify_roles
+from app.db.session import get_db
 from app.models import (
-    Admission, Appointment, AuditLog, Bed, Bill, Department, DoctorSchedule,
-    EmergencyEvent, InventoryItem, InventoryItemTransaction, LaboratoryOrder,
-    Notification, OnlineConsultation, Patient, Payment, Profile, ProcurementItem, Ward,
-    ProcurementRequest, ReceivingRecord, Supplier, SystemSetting,
+    Admission,
+    Appointment,
+    AuditLog,
+    Bed,
+    Bill,
+    Department,
+    DoctorSchedule,
+    EmergencyEvent,
+    InventoryItem,
+    InventoryItemTransaction,
+    LaboratoryOrder,
+    Notification,
+    OnlineConsultation,
+    Patient,
+    Payment,
+    ProcurementItem,
+    ProcurementRequest,
+    Profile,
+    ReceivingRecord,
+    Supplier,
+    SystemSetting,
 )
 from app.schemas.operations import (
-    AppointmentCreate, AppointmentRead, AppointmentStatusUpdate, DepartmentCreate, DepartmentRead, DepartmentUpdate,
-    DoctorScheduleCreate, DoctorScheduleRead, ProcurementItemInput, ProcurementItemRead,
-    ProcurementRequestCreate, ProcurementRequestRead, ReceivingRecordCreate, ReceivingRecordRead,
-    InventoryItemCreate, InventoryItemRead, InventoryItemTransactionRead,
-    InventoryMovementCreate, NotificationCreate, NotificationRead,
-    OnlineConsultationCreate, OnlineConsultationRead, OnlineConsultationUpdate, SupplierCreate,
-    SupplierRead, SystemSettingRead, SystemSettingWrite,
+    AppointmentCreate,
+    AppointmentRead,
+    AppointmentStatusUpdate,
+    DepartmentCreate,
+    DepartmentRead,
+    DoctorScheduleCreate,
+    DoctorScheduleRead,
+    InventoryItemCreate,
+    InventoryItemRead,
+    InventoryItemTransactionRead,
+    InventoryMovementCreate,
+    NotificationCreate,
+    NotificationRead,
+    OnlineConsultationCreate,
+    OnlineConsultationRead,
+    OnlineConsultationUpdate,
+    ProcurementItemRead,
+    ProcurementRequestCreate,
+    ProcurementRequestRead,
+    ReceivingRecordCreate,
+    ReceivingRecordRead,
+    SupplierCreate,
+    SupplierRead,
+    SystemSettingRead,
+    SystemSettingWrite,
 )
 
 router = APIRouter(tags=["inventory, appointments, and notifications"])
@@ -187,7 +222,7 @@ def create_inventory_item(
         Supplier.id == payload.supplier_id, Supplier.is_active.is_(True)
     )) is None:
         raise HTTPException(status_code=422, detail="Active supplier not found.")
-    item = InventoryItem(**payload.model_dump(), quantity_on_hand=Decimal("0"), is_active=True)
+    item = InventoryItem(**payload.model_dump(), quantity_on_hand=Decimal(0), is_active=True)
     db.add(item)
     try:
         db.flush()
@@ -304,7 +339,7 @@ def create_procurement_request(
         for item in payload.items:
             db.add(ProcurementItem(
                 request_id=request.id, inventory_item_id=item.inventory_item_id,
-                requested_quantity=item.requested_quantity, received_quantity=Decimal("0"),
+                requested_quantity=item.requested_quantity, received_quantity=Decimal(0),
                 unit_cost=item.unit_cost, notes=item.notes,
             ))
         _audit(db, profile, "procurement_request.submitted", "procurement_request", request.id, {
@@ -349,7 +384,7 @@ def approve_procurement_request(
         raise HTTPException(status_code=409, detail="Only submitted procurement requests can be approved.")
     request.status = "approved"
     request.approved_by = profile.id
-    request.approved_at = datetime.now(timezone.utc)
+    request.approved_at = datetime.now(UTC)
     _audit(db, profile, "procurement_request.approved", "procurement_request", request.id, {
         "request_number": request.request_number,
     })
@@ -441,7 +476,7 @@ def get_whiteboard_summary(
         "pending_laboratory_orders": int(db.scalar(select(func.count(LaboratoryOrder.id)).where(LaboratoryOrder.status.in_(["ordered", "collected", "in_progress"]))) or 0),
         "low_stock_items": int(db.scalar(select(func.count(InventoryItem.id)).where(InventoryItem.is_active.is_(True), InventoryItem.quantity_on_hand <= InventoryItem.reorder_level)) or 0),
         "active_appointments": int(db.scalar(select(func.count(Appointment.id)).where(Appointment.status.in_(["scheduled", "confirmed", "checked_in"]))) or 0),
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
     }
 
 
@@ -488,7 +523,7 @@ def create_appointment(
     profile: Profile = Depends(get_current_profile),
     db: Session = Depends(get_db),
 ) -> Appointment:
-    if payload.scheduled_at <= datetime.now(timezone.utc):
+    if payload.scheduled_at <= datetime.now(UTC):
         raise HTTPException(status_code=422, detail="Appointment must be scheduled in the future.")
     roles = _roles(profile, db)
     if "patient" in roles and not roles.intersection(APPOINTMENT_READ_ROLES):
@@ -720,9 +755,9 @@ def update_online_consultation(
     if payload.meeting_url is not None:
         consultation.meeting_url = payload.meeting_url.strip() or None
     if payload.status == "in_progress":
-        consultation.started_at = datetime.now(timezone.utc)
+        consultation.started_at = datetime.now(UTC)
     if payload.status in {"completed", "cancelled"}:
-        consultation.ended_at = datetime.now(timezone.utc)
+        consultation.ended_at = datetime.now(UTC)
     _audit(db, profile, "online_consultation.updated", "online_consultation", consultation.id, {
         "status": consultation.status, "appointment_id": str(consultation.appointment_id),
     })
@@ -779,7 +814,7 @@ def mark_notification_read(
     if notification is None:
         raise HTTPException(status_code=404, detail="Notification not found.")
     if notification.read_at is None:
-        notification.read_at = datetime.now(timezone.utc)
+        notification.read_at = datetime.now(UTC)
         db.commit()
         db.refresh(notification)
     return notification

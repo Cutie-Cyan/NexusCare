@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -6,17 +6,35 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.deps import ensure_encounter_access, get_current_profile, get_profile_roles, require_roles
-from app.db.session import get_db
+from app.api.deps import (
+    ensure_encounter_access,
+    get_current_profile,
+    get_profile_roles,
+    require_roles,
+)
 from app.core.notifications import notify_roles
+from app.db.session import get_db
 from app.models import (
-    Admission, AuditLog, Diagnosis, EmergencyEvent, Encounter, Patient, Profile,
+    Admission,
+    AuditLog,
+    Diagnosis,
+    EmergencyEvent,
+    Encounter,
+    Patient,
+    Profile,
     VitalSign,
 )
 from app.schemas.clinical import (
-    DiagnosisCreate, DiagnosisRead, EmergencyEventCreate, EmergencyEventRead,
-    EmergencyTriageUpdate, EncounterCreate, EncounterRead, EncounterUpdate,
-    VitalSignCreate, VitalSignRead,
+    DiagnosisCreate,
+    DiagnosisRead,
+    EmergencyEventCreate,
+    EmergencyEventRead,
+    EmergencyTriageUpdate,
+    EncounterCreate,
+    EncounterRead,
+    EncounterUpdate,
+    VitalSignCreate,
+    VitalSignRead,
 )
 
 router = APIRouter(tags=["clinical encounters and emergency"])
@@ -187,7 +205,7 @@ def update_encounter(
     if changes.get("status") == "cancelled" and encounter.status != "open":
         raise HTTPException(status_code=409, detail="Only open encounters can be cancelled.")
     if changes.get("status") == "completed":
-        encounter.ended_at = datetime.now(timezone.utc)
+        encounter.ended_at = datetime.now(UTC)
     elif changes.get("status") in {"open", "in_progress"}:
         encounter.ended_at = None
     for field, value in changes.items():

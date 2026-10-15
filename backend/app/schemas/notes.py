@@ -4,7 +4,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-
 ConsultationNoteType = Literal["initial", "progress", "follow_up", "discharge"]
 NursingNoteType = Literal["assessment", "progress", "intervention", "handover"]
 

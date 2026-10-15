@@ -5,7 +5,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-
 EncounterType = Literal["emergency", "consultation", "inpatient", "outpatient", "follow_up", "observation"]
 EncounterStatus = Literal["open", "in_progress", "completed", "cancelled"]
 TriageLevel = Literal["red", "orange", "yellow", "green", "blue"]

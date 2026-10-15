@@ -8,8 +8,18 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
-    Boolean, CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text,
-    UniqueConstraint, func,
+    Boolean,
+    CheckConstraint,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -382,8 +392,8 @@ class InventoryItem(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(180), index=True)
     category: Mapped[str] = mapped_column(String(80))
     unit: Mapped[str] = mapped_column(String(40), default="piece")
-    quantity_on_hand: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=Decimal("0"))
-    reorder_level: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=Decimal("0"))
+    quantity_on_hand: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=Decimal(0))
+    reorder_level: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=Decimal(0))
     unit_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0.00"))
     supplier_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("suppliers.id", ondelete="SET NULL"), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
@@ -526,7 +536,7 @@ class ProcurementItem(Base):
     request_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("procurement_requests.id", ondelete="RESTRICT"), index=True)
     inventory_item_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("inventory_items.id", ondelete="RESTRICT"))
     requested_quantity: Mapped[Decimal] = mapped_column(Numeric(12, 3))
-    received_quantity: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=Decimal("0"))
+    received_quantity: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=Decimal(0))
     unit_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 

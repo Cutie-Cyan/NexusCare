@@ -4,7 +4,7 @@ import csv
 import io
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -91,7 +91,7 @@ async def upload_patient_document(
         db.rollback()
         try:
             storage.remove([path])
-        except Exception:  # noqa: BLE001 - retain the original upload/database failure
+        except Exception:
             logger.exception("Failed to remove uploaded object after document transaction failure")
         if isinstance(exc, HTTPException):
             raise
@@ -209,7 +209,7 @@ def export_bills_csv(
            "count": len(rows)})
     db.commit()
     stream.seek(0)
-    filename = f"nexuscare-bills-{datetime.now(timezone.utc):%Y%m%d-%H%M%S}.csv"
+    filename = f"nexuscare-bills-{datetime.now(UTC):%Y%m%d-%H%M%S}.csv"
     return StreamingResponse(iter([stream.getvalue()]), media_type="text/csv",
                              headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
@@ -240,6 +240,6 @@ def export_payments_csv(
     """), {"actor": profile.id, "count": len(rows)})
     db.commit()
     stream.seek(0)
-    filename = f"nexuscare-payments-{datetime.now(timezone.utc):%Y%m%d-%H%M%S}.csv"
+    filename = f"nexuscare-payments-{datetime.now(UTC):%Y%m%d-%H%M%S}.csv"
     return StreamingResponse(iter([stream.getvalue()]), media_type="text/csv",
                              headers={"Content-Disposition": f'attachment; filename="{filename}"'})

@@ -4,17 +4,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes.admin import router as admin_router
 from app.api.routes.admissions import router as admissions_router
 from app.api.routes.auth import router as auth_router
+from app.api.routes.billing import router as billing_router
 from app.api.routes.clinical import router as clinical_router
+from app.api.routes.documents_exports import router as documents_exports_router
+from app.api.routes.finance_extensions import router as finance_extensions_router
 from app.api.routes.health import router as health_router
 from app.api.routes.laboratory import router as laboratory_router
-from app.api.routes.billing import router as billing_router
-from app.api.routes.finance_extensions import router as finance_extensions_router
-from app.api.routes.documents_exports import router as documents_exports_router
-from app.api.routes.receipts_exports import router as receipts_exports_router
-from app.api.routes.operations import router as operations_router
-from app.api.routes.pharmacy import router as pharmacy_router
 from app.api.routes.notes import router as notes_router
+from app.api.routes.operations import router as operations_router
 from app.api.routes.patients import router as patients_router
+from app.api.routes.pharmacy import router as pharmacy_router
+from app.api.routes.receipts_exports import router as receipts_exports_router
 from app.core.config import get_settings
 
 settings = get_settings()

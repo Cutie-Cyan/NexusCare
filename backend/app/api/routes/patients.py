@@ -6,11 +6,22 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_profile, get_profile_roles, require_roles
-from app.db.session import get_db
 from app.core.notifications import notify_roles
+from app.db.session import get_db
 from app.models import (
-    Admission, Appointment, AuditLog, Bill, Diagnosis, Encounter, LaboratoryOrder,
-    LaboratoryResult, Patient, Payment, Prescription, PrescriptionItem, Profile,
+    Admission,
+    Appointment,
+    AuditLog,
+    Bill,
+    Diagnosis,
+    Encounter,
+    LaboratoryOrder,
+    LaboratoryResult,
+    Patient,
+    Payment,
+    Prescription,
+    PrescriptionItem,
+    Profile,
     VitalSign,
 )
 from app.schemas.patient import PatientCreate, PatientRead, PatientUpdate
@@ -291,4 +302,3 @@ def deactivate_patient(
     patient.is_active = False
     _audit(db, profile, "patient.deactivated", patient)
     db.commit()
-    return None

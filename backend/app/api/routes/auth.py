@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_profile, get_profile_roles
+from app.api.deps import get_profile_roles
 from app.core.security import AuthenticatedUser, get_current_user
 from app.db.session import get_db
 from app.models import Profile

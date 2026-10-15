@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -8,15 +8,30 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_profile, get_profile_roles, require_roles
-from app.db.session import get_db
 from app.core.notifications import notify_roles
+from app.db.session import get_db
 from app.models import (
-    AuditLog, Bill, BillItem, Encounter, Patient, Payment, PaymentAllocation,
-    Profile, Receipt, ServiceCatalog,
+    AuditLog,
+    Bill,
+    BillItem,
+    Encounter,
+    Patient,
+    Payment,
+    PaymentAllocation,
+    Profile,
+    Receipt,
+    ServiceCatalog,
 )
 from app.schemas.billing import (
-    BillBalanceRead, BillCreate, BillItemRead, BillRead, PaymentCreate,
-    PaymentRead, PaymentReversal, ServiceCatalogCreate, ServiceCatalogUpdate,
+    BillBalanceRead,
+    BillCreate,
+    BillItemRead,
+    BillRead,
+    PaymentCreate,
+    PaymentRead,
+    PaymentReversal,
+    ServiceCatalogCreate,
+    ServiceCatalogUpdate,
 )
 
 router = APIRouter(tags=["billing and payments"])
@@ -433,7 +448,7 @@ def reverse_payment(
         if payment.status != "posted":
             raise HTTPException(status_code=409, detail="Only posted payments can be reversed.")
         payment.status = "reversed"
-        payment.reversed_at = datetime.now(timezone.utc)
+        payment.reversed_at = datetime.now(UTC)
         payment.reversal_reason = payload.reason
         bill = db.scalar(select(Bill).where(Bill.id == payment.bill_id).with_for_update())
         if bill:

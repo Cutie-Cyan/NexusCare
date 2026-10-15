@@ -5,7 +5,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-
 LabPriority = Literal["routine", "urgent", "stat"]
 LabOrderStatus = Literal["ordered", "collected", "in_progress", "completed", "cancelled"]
 

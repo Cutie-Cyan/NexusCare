@@ -6,7 +6,6 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-
 class ProcurementItemInput(BaseModel):
     inventory_item_id: UUID
     requested_quantity: Decimal = Field(gt=0, max_digits=12, decimal_places=3)
@@ -150,7 +149,7 @@ class InventoryItemCreate(BaseModel):
     name: str = Field(min_length=2, max_length=180)
     category: str = Field(min_length=2, max_length=80)
     unit: str = Field(default="piece", min_length=1, max_length=40)
-    reorder_level: Decimal = Field(default=Decimal("0"), ge=0, max_digits=12, decimal_places=3)
+    reorder_level: Decimal = Field(default=Decimal(0), ge=0, max_digits=12, decimal_places=3)
     unit_cost: Decimal = Field(default=Decimal("0.00"), ge=0, max_digits=12, decimal_places=2)
     supplier_id: UUID | None = None
 

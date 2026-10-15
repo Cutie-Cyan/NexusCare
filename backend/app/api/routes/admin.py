@@ -157,7 +157,7 @@ def create_staff_account(
         db.rollback()
         try:
             admin_client.auth.admin.delete_user(str(auth_user.id))
-        except Exception:  # noqa: BLE001 - preserve the original database failure
+        except Exception:
             logger.exception("Failed to roll back Supabase Auth user after profile creation failure")
         if isinstance(exc, HTTPException):
             raise

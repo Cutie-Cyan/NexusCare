@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -7,18 +7,30 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.deps import ensure_encounter_access, get_current_profile, get_profile_roles, require_roles
-from app.db.session import get_db
+from app.api.deps import ensure_encounter_access, get_profile_roles, require_roles
 from app.core.billing import add_service_charge
 from app.core.notifications import notify_roles
+from app.db.session import get_db
 from app.models import (
-    AuditLog, BillItem, Encounter, LaboratoryOrder, LaboratoryResult, LaboratoryTest,
-    Payment, PaymentAllocation, Profile,
+    AuditLog,
+    BillItem,
+    Encounter,
+    LaboratoryOrder,
+    LaboratoryResult,
+    LaboratoryTest,
+    Payment,
+    PaymentAllocation,
+    Profile,
 )
 from app.schemas.laboratory import (
-    LaboratoryBillingAuthorizationCreate, LaboratoryOrderCreate, LaboratoryOrderRead,
-    LaboratoryOrderStatusUpdate, LaboratoryResultCreate, LaboratoryResultRead,
-    LaboratoryTestCreate, LaboratoryTestRead,
+    LaboratoryBillingAuthorizationCreate,
+    LaboratoryOrderCreate,
+    LaboratoryOrderRead,
+    LaboratoryOrderStatusUpdate,
+    LaboratoryResultCreate,
+    LaboratoryResultRead,
+    LaboratoryTestCreate,
+    LaboratoryTestRead,
 )
 
 router = APIRouter(tags=["laboratory"])
@@ -363,7 +375,7 @@ def verify_laboratory_result(
         raise HTTPException(status_code=409, detail="A different laboratory staff member must verify this result.")
     result.verified_by = profile.id
     result.status = "verified"
-    result.released_at = datetime.now(timezone.utc)
+    result.released_at = datetime.now(UTC)
     order.status = "completed"
     _audit(db, profile, "laboratory_result.verified", "laboratory_result", result.id, {
         "order_id": str(order.id),

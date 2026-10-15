@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -8,12 +8,31 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_profile, get_profile_roles, require_roles
-from app.db.session import get_db
 from app.core.notifications import notify_roles
-from app.models import Admission, AuditLog, Bed, Bill, Department, Patient, Payment, Profile, Ward, WardTransfer
+from app.db.session import get_db
+from app.models import (
+    Admission,
+    AuditLog,
+    Bed,
+    Bill,
+    Department,
+    Patient,
+    Payment,
+    Profile,
+    Ward,
+    WardTransfer,
+)
 from app.schemas.admission import (
-    AdmissionCreate, AdmissionRead, BedCreate, BedRead, BedTransferCreate,
-    DepartmentCreate, DepartmentRead, DischargeRequest, WardCreate, WardRead,
+    AdmissionCreate,
+    AdmissionRead,
+    BedCreate,
+    BedRead,
+    BedTransferCreate,
+    DepartmentCreate,
+    DepartmentRead,
+    DischargeRequest,
+    WardCreate,
+    WardRead,
 )
 
 router = APIRouter(tags=["admissions and beds"])
@@ -343,7 +362,7 @@ def discharge_patient(
             if bed is not None:
                 bed.status = "available"
         admission.status = "discharged"
-        admission.discharged_at = datetime.now(timezone.utc)
+        admission.discharged_at = datetime.now(UTC)
         admission.discharge_notes = payload.discharge_notes
         _audit(db, profile, "admission.discharged", "admission", admission.id, {
             "patient_id": str(admission.patient_id),

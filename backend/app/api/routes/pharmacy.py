@@ -6,18 +6,36 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.deps import ensure_encounter_access, get_current_profile, get_profile_roles, require_roles
-from app.db.session import get_db
+from app.api.deps import (
+    ensure_encounter_access,
+    get_profile_roles,
+    require_roles,
+)
 from app.core.billing import add_service_charge
 from app.core.notifications import notify_roles
+from app.db.session import get_db
 from app.models import (
-    AuditLog, Encounter, InventoryTransaction, Medicine, MedicineBatch,
-    PharmacyDispensing, Prescription, PrescriptionItem, Profile,
+    AuditLog,
+    Encounter,
+    InventoryTransaction,
+    Medicine,
+    MedicineBatch,
+    PharmacyDispensing,
+    Prescription,
+    PrescriptionItem,
+    Profile,
 )
 from app.schemas.pharmacy import (
-    DispenseCreate, DispensingRead, InventoryStockRead, MedicineBatchCreate,
-    MedicineBatchRead, MedicineCreate, MedicineRead, PrescriptionCreate,
-    PrescriptionItemRead, PrescriptionRead,
+    DispenseCreate,
+    DispensingRead,
+    InventoryStockRead,
+    MedicineBatchCreate,
+    MedicineBatchRead,
+    MedicineCreate,
+    MedicineRead,
+    PrescriptionCreate,
+    PrescriptionItemRead,
+    PrescriptionRead,
 )
 
 router = APIRouter(tags=["pharmacy"])
