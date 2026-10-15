@@ -14,7 +14,7 @@ from app.core.notifications import notify_profiles, notify_roles
 from app.models import (
     Admission, Appointment, AuditLog, Bed, Bill, Department, DoctorSchedule,
     EmergencyEvent, InventoryItem, InventoryItemTransaction, LaboratoryOrder,
-    Notification, OnlineConsultation, Patient, Payment, Profile, ProcurementItem,
+    Notification, OnlineConsultation, Patient, Payment, Profile, ProcurementItem, Ward,
     ProcurementRequest, ReceivingRecord, Supplier, SystemSetting,
 )
 from app.schemas.operations import (
@@ -109,9 +109,9 @@ def update_department(
     if changes.get("is_active") is False:
         active_beds = db.scalar(
             select(func.count(Bed.id))
-            .join(__import__("app.models", fromlist=["Ward"]).Ward, Bed.ward_id == __import__("app.models", fromlist=["Ward"]).Ward.id)
-            .where(__import__("app.models", fromlist=["Ward"]).Ward.department_id == department.id,
-                   __import__("app.models", fromlist=["Ward"]).Ward.is_active.is_(True),
+            .join(Ward, Bed.ward_id == Ward.id)
+            .where(Ward.department_id == department.id,
+                   Ward.is_active.is_(True),
                    Bed.status == "occupied")
         ) or 0
         if active_beds:
