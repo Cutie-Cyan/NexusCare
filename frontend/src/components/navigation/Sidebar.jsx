@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
-  Activity, BedDouble, Building2, CalendarDays, ChartNoAxesCombined,
+  Activity, BedDouble, Building2, CalendarDays, ChartNoAxesCombined, FileCheck2,
   ChevronRight, ClipboardList, CreditCard, FlaskConical, HeartPulse,
   LayoutDashboard, LogOut, Package, Pill, ReceiptText, ScrollText, Settings,
   ShieldCheck, Siren, Stethoscope, UserPlus, UserRound, Users, Video, Wallet, X,
@@ -25,7 +25,7 @@ const groups = [
     ['Online Consultation', '/online-consultation', Video],
   ]},
   { label: 'FINANCIAL MANAGEMENT', items: [
-    ['Billing', '/billing', Wallet], ['Payments', '/payments', CreditCard], ['Receipts', '/receipts', ReceiptText],
+    ['Billing', '/billing', Wallet], ['Payments', '/payments', CreditCard], ['Receipts', '/receipts', ReceiptText],\n    ['Discounts & Benefits', '/financial-assistance', FileCheck2],
   ]},
   { label: 'ADMINISTRATION', items: [
     ['Staff & Accounts', '/staff', ShieldCheck], ['Departments', '/departments', Building2],
