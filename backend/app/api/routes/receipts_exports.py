@@ -189,3 +189,126 @@ def export_payments_xlsx(
         {"actor": profile.id, "count": len(rows)})
     db.commit()
     return _xlsx_response(workbook, "payments")
+
+
+
+def _audit_spreadsheet_export(db: Session, profile: Profile, export_type: str, row_count: int) -> None:
+    db.add(AuditLog(
+        actor_profile_id=profile.id, action="data.exported",
+        resource_type=export_type, resource_id="xlsx",
+        details={"row_count": row_count, "format": "xlsx"},
+    ))
+    db.execute(text("""
+        insert into public.export_audit_events(actor_profile_id, export_type, format, filters, row_count)
+        values (:actor, :kind, 'xlsx', '{}'::jsonb, :count)
+    """), {"actor": profile.id, "kind": export_type, "count": row_count})
+
+
+@router.get("/exports/patients.xlsx", summary="Export authorized patient demographics to Excel")
+def export_patients_xlsx(
+    profile: Profile = Depends(require_roles("administrator", "information_officer")),
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
+    rows = db.execute(text("""
+        select medical_record_number, first_name, middle_name, last_name, date_of_birth,
+               sex, phone, email, address, allergies, created_at
+        from public.patients where is_active=true
+        order by last_name, first_name limit 5000
+    """)).mappings().all()
+    workbook = Workbook()
+    sheet = _styled_sheet(workbook, "Patients", [
+        "MRN", "First name", "Middle name", "Last name", "Date of birth",
+        "Sex", "Phone", "Email", "Address", "Allergies", "Registered at",
+    ])
+    for row in rows:
+        sheet.append([row["medical_record_number"], row["first_name"], row["middle_name"],
+            row["last_name"], row["date_of_birth"].isoformat() if row["date_of_birth"] else "",
+            row["sex"], row["phone"], row["email"], row["address"], row["allergies"],
+            row["created_at"].isoformat() if row["created_at"] else ""])
+    _audit_spreadsheet_export(db, profile, "patients", len(rows))
+    db.commit()
+    return _xlsx_response(workbook, "patients")
+
+
+@router.get("/exports/appointments.xlsx", summary="Export appointments to Excel")
+def export_appointments_xlsx(
+    profile: Profile = Depends(require_roles("administrator", "information_officer")),
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
+    rows = db.execute(text("""
+        select a.id, p.medical_record_number, p.first_name, p.last_name,
+               d.name as department, a.scheduled_at, a.status, a.reason, a.created_at
+        from public.appointments a
+        join public.patients p on p.id=a.patient_id
+        left join public.departments d on d.id=a.department_id
+        order by a.scheduled_at desc limit 5000
+    """)).mappings().all()
+    workbook = Workbook()
+    sheet = _styled_sheet(workbook, "Appointments", [
+        "Appointment ID", "MRN", "First name", "Last name", "Department",
+        "Scheduled at", "Status", "Reason", "Created at",
+    ])
+    for row in rows:
+        sheet.append([str(row["id"]), row["medical_record_number"], row["first_name"],
+            row["last_name"], row["department"], row["scheduled_at"].isoformat() if row["scheduled_at"] else "",
+            row["status"], row["reason"], row["created_at"].isoformat() if row["created_at"] else ""])
+    _audit_spreadsheet_export(db, profile, "appointments", len(rows))
+    db.commit()
+    return _xlsx_response(workbook, "appointments")
+
+
+@router.get("/exports/inventory.xlsx", summary="Export inventory balances to Excel")
+def export_inventory_xlsx(
+    profile: Profile = Depends(require_roles("administrator", "pharmacy_staff")),
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
+    rows = db.execute(text("""
+        select code, name, category, unit, quantity_on_hand, reorder_level,
+               unit_cost, is_active, updated_at
+        from public.inventory_items order by name limit 5000
+    """)).mappings().all()
+    workbook = Workbook()
+    sheet = _styled_sheet(workbook, "Inventory", [
+        "Item code", "Item name", "Category", "Unit", "Quantity on hand",
+        "Reorder level", "Unit cost (PHP)", "Active", "Updated at",
+    ])
+    for row in rows:
+        sheet.append([row["code"], row["name"], row["category"], row["unit"],
+            float(row["quantity_on_hand"] or 0), float(row["reorder_level"] or 0),
+            float(row["unit_cost"] or 0), bool(row["is_active"]),
+            row["updated_at"].isoformat() if row["updated_at"] else ""])
+    for cell in sheet["G"][1:]:
+        cell.number_format = '"₱"#,##0.00'
+    _audit_spreadsheet_export(db, profile, "inventory", len(rows))
+    db.commit()
+    return _xlsx_response(workbook, "inventory")
+
+
+@router.get("/exports/statistics.xlsx", summary="Export hospital summary statistics to Excel")
+def export_statistics_xlsx(
+    profile: Profile = Depends(require_roles("administrator", "information_officer", "cashier")),
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
+    rows = db.execute(text("""
+        select 'Active patients' as metric, count(*)::numeric as value
+        from public.patients where is_active=true
+        union all
+        select 'Scheduled or confirmed appointments', count(*)::numeric
+        from public.appointments where status in ('scheduled', 'confirmed', 'checked_in')
+        union all
+        select 'Open or partially paid bills', count(*)::numeric
+        from public.bills where status in ('open', 'partially_paid')
+        union all
+        select 'Posted payments total (PHP)', coalesce(sum(amount), 0)
+        from public.payments where status='posted'
+        union all
+        select 'Low stock inventory items', count(*)::numeric
+        from public.inventory_items where is_active=true and quantity_on_hand <= reorder_level
+    """)).mappings().all()
+    workbook = Workbook()
+    sheet = _styled_sheet(workbook, "Statistics", ["Metric", "Value"])
+    for row in rows:
+        sheet.append([row["metric"], float(row["value"] or 0)])
+    _audit_spreadsheet_export(db, profile, "statistics", len(rows))
+    db.commit()
+    return _xlsx_response(workbook, "statistics")
