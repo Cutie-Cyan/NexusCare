@@ -10,6 +10,7 @@ from app.api.routes.laboratory import router as laboratory_router
 from app.api.routes.billing import router as billing_router
 from app.api.routes.finance_extensions import router as finance_extensions_router
 from app.api.routes.documents_exports import router as documents_exports_router
+from app.api.routes.receipts_exports import router as receipts_exports_router
 from app.api.routes.operations import router as operations_router
 from app.api.routes.pharmacy import router as pharmacy_router
 from app.api.routes.notes import router as notes_router
@@ -41,6 +42,7 @@ app.include_router(pharmacy_router, prefix=settings.api_v1_prefix)
 app.include_router(billing_router, prefix=settings.api_v1_prefix)
 app.include_router(finance_extensions_router, prefix=settings.api_v1_prefix)
 app.include_router(documents_exports_router, prefix=settings.api_v1_prefix)
+app.include_router(receipts_exports_router, prefix=settings.api_v1_prefix)
 app.include_router(operations_router, prefix=settings.api_v1_prefix)
 
 
