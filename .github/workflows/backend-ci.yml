@@ -1,0 +1,31 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/pyproject.toml
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Resolve and install dependencies
+        run: |
+          uv lock
+          uv sync --all-groups
+      - name: Check Python style
+        run: uv run ruff check app
+      - name: Run tests
+        run: uv run pytest -q
